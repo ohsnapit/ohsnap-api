@@ -1,8 +1,9 @@
 {
-  "version": 2,
-  "functions": {
-    "api/health.ts": {
-      "runtime": "@vercel/node@3"
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/api"
     }
-  }
+  ]
 }
