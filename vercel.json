@@ -1,18 +1,8 @@
 {
   "version": 2,
-  "builds": [
-    {
-      "src": "api/test.ts",
-      "use": "@vercel/node"
+  "functions": {
+    "api/health.ts": {
+      "runtime": "@vercel/node@3"
     }
-  ],
-  "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "api/test.ts"
-    }
-  ],
-  "env": {
-    "NODE_ENV": "production"
   }
 }
