@@ -102,6 +102,20 @@ const app = new Elysia()
             profile: t.Optional(t.Object({
               bio: t.Optional(t.Object({
                 text: t.String()
+              })),
+              banner: t.Optional(t.Object({
+                url: t.String()
+              })),
+              location: t.Optional(t.Object({
+                latitude: t.Number(),
+                longitude: t.Number(),
+                address: t.Object({
+                  city: t.String(),
+                  state: t.String(),
+                  state_code: t.String(),
+                  country: t.String(),
+                  country_code: t.String()
+                })
               }))
             })),
             follower_count: t.Optional(t.Number()),
@@ -127,7 +141,13 @@ const app = new Elysia()
               username: t.String()
             }))),
             power_badge: t.Optional(t.Boolean()),
-            score: t.Optional(t.Number())
+            score: t.Optional(t.Number()),
+            url: t.Optional(t.String()),
+            pro: t.Optional(t.Object({
+              status: t.String(),
+              subscribed_at: t.String(),
+              expires_at: t.String()
+            }))
           }),
           app: t.Optional(t.Object({
             object: t.String(),
@@ -149,6 +169,15 @@ const app = new Elysia()
           embeds: t.Array(t.Object({
             url: t.Optional(t.String())
           })),
+          channel: t.Union([
+            t.Object({
+              object: t.String(),
+              id: t.String(),
+              name: t.String(),
+              image_url: t.String()
+            }),
+            t.Null()
+          ]),
           reactions: t.Object({
             likes_count: t.Number(),
             recasts_count: t.Number(),
@@ -161,7 +190,10 @@ const app = new Elysia()
           mentioned_profiles: t.Array(t.Any()),
           mentioned_profiles_ranges: t.Array(t.Any()),
           mentioned_channels: t.Array(t.Any()),
-          mentioned_channels_ranges: t.Array(t.Any())
+          mentioned_channels_ranges: t.Array(t.Any()),
+          author_channel_context: t.Optional(t.Object({
+            following: t.Boolean()
+          }))
         })
       }),
       400: t.Object({

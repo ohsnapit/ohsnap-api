@@ -12,7 +12,7 @@ export interface CastResponse {
     text: string;
     timestamp: string;
     embeds: any[];
-    channel?: {
+    channel: {
       object: string;
       id: string;
       name: string;

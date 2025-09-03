@@ -237,7 +237,8 @@ export function buildUserProfile(
     auth_addresses: authAddresses || [],
     verified_accounts: parsedUserData.verified_accounts,
     power_badge: powerBadge,
-    score: adjustedScore
+    score: adjustedScore,
+    url: parsedUserData.url
   };
 
   return profile;

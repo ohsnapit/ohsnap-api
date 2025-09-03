@@ -1,7 +1,6 @@
 import { Elysia, t } from 'elysia'
 import { openapi } from '@elysiajs/openapi'
 import { getCastByFidAndHash } from '../src/services/cast.js'
-import { API_PORT } from '../src/utils/constants.js'
 
 const app = new Elysia()
   .use(openapi({
@@ -11,7 +10,7 @@ const app = new Elysia()
         version: '1.0.0',
         description: `Open source alternative to index the Farcaster snapchain. Compatible with Neynar API responses.
         
-**Pagination Control**: Use fullCount=true parameter for complete accuracy or leave default for fast response with 10K limits.`,
+**Pagination Control**: Use fullCount=true parameter for better accuracy (up to 100K limit) or leave default for fast response with 10K limits.`,
         contact: {
           name: 'OhSnap API',
           url: 'https://github.com/ohsnapit/ohsnap-api'
@@ -26,7 +25,7 @@ const app = new Elysia()
       tags: [
         {
           name: 'Cast',
-          description: 'Cast-related endpoints with optional pagination control. Use fullCount=true for complete accuracy.'
+          description: 'Cast-related endpoints with optional pagination control. Use fullCount=true for better accuracy (up to 100K limit).'
         },
         {
           name: 'Health',
@@ -89,7 +88,7 @@ const app = new Elysia()
         example: '0xcefff5d03bf661f4f9d709386816bd4d6ba49c72'
       }),
       fullCount: t.Optional(t.String({
-        description: 'Pagination mode for follower/reaction counts. Default: "false" (fast, up to 10K). Set to "true" for complete counts',
+        description: 'Pagination mode for follower/reaction counts. Default: "false" (fast, up to 10K). Set to "true" for better counts (up to 100K limit)',
         example: 'false',
         enum: ['true', 'false']
       }))
@@ -101,11 +100,11 @@ const app = new Elysia()
 
 **Pagination Modes:**
 - **Fast (default)**: Shows up to 10K followers/reactions/replies
-- **Full (fullCount=true)**: Shows complete accurate counts
+- **Full (fullCount=true)**: Shows better counts up to 100K limit (not truly unlimited)
 
 **Usage:**
-- Fast: Suitable for most use cases, 10K limit covers majority of users
-- Full: Use when exact counts are critical (e.g., analytics, verification)`,
+- Fast: Suitable for most use cases, 10K limit covers majority of users  
+- Full: Use for better accuracy up to 100K limit. For users with 100K+ followers, counts will be capped at 100K`,
       examples: [
         {
           summary: 'Fast Mode (Default) - up to 10K counts',
@@ -116,8 +115,8 @@ const app = new Elysia()
           }
         },
         {
-          summary: 'Full Mode - complete accurate counts',
-          description: 'Returns complete counts for users with 10K+ followers/reactions. Use for analytics or when exact numbers are critical.',
+          summary: 'Full Mode - better counts (up to 100K)',
+          description: 'Returns better counts up to 100K limit. Suitable for most analytics needs but not truly unlimited.',
           value: {
             fid: '3',
             hash: '0x029f7cceef2f0078f34949d6e339070fc6eb47b4',

@@ -1,6 +1,6 @@
 import type { CastResponse, UserProfile, CastMetrics } from '../types/api.js';
 import type { HttpCastMessage } from '../types/http.js';
-import { base64ToHex, farcasterTimestampToISO } from '../utils/converters.js';
+import { farcasterTimestampToISO } from '../utils/converters.js';
 
 /**
  * Build cast response from HTTP data and metrics
@@ -64,8 +64,8 @@ export function buildCastResponse(
     return embed;
   }) || [];
 
-  // Determine channel from parentUrl
-  let channel = null;
+  // Determine channel from parentUrl - match Neynar exactly
+  let channel: { object: string; id: string; name: string; image_url: string } | null = null;
   if (parentUrl === 'https://thenetworkstate.com') {
     channel = {
       object: 'channel_dehydrated',
@@ -89,7 +89,7 @@ export function buildCastResponse(
       text: processCastText(castData.text || '', castData, mentionedProfiles),
       timestamp: farcasterTimestampToISO(castMessage.data.timestamp),
       embeds: embeds,
-      channel: channel || null,
+      channel: channel ?? null,
       reactions: {
         likes_count: metrics.reactions.likes,
         recasts_count: metrics.reactions.recasts,
@@ -101,11 +101,9 @@ export function buildCastResponse(
       mentioned_profiles_ranges: mentionedProfilesRanges,
       mentioned_channels: [],
       mentioned_channels_ranges: [],
-      ...(channel && {
-        author_channel_context: {
-          following: true
-        }
-      })
+      author_channel_context: channel ? {
+        following: true
+      } : undefined
     }
   };
 }
