@@ -1,7 +1,7 @@
 import type { HttpResponse } from '../types/http.js';
 
 /**
- * Helper function to get paginated total count
+ * Helper function to get complete paginated total count - gets ALL pages until the very end
  */
 export async function getPaginatedCount(
   httpRequest: <T>(endpoint: string, params: Record<string, string | number | boolean>) => Promise<T>,
@@ -11,10 +11,10 @@ export async function getPaginatedCount(
   let totalCount = 0;
   let pageToken: string | undefined;
   let hasMore = true;
-  const maxPages = 10000;
   let pageCount = 0;
 
-  while (hasMore && pageCount < maxPages) {
+  // Keep going until there are absolutely no more pages
+  while (hasMore) {
     try {
       const requestParams = {
         ...params,
@@ -38,10 +38,9 @@ export async function getPaginatedCount(
         hasMore = false;
       }
 
-      // Safety check - if count gets extremely high, stop to prevent timeout
-      if (totalCount > 1000000) {
-        console.warn(`Count exceeded 1M for ${endpoint}, stopping pagination`);
-        break;
+      // Progress logging for very large datasets
+      if (pageCount % 100 === 0) {
+        console.log(`Paginated ${totalCount.toLocaleString()} items so far (${pageCount} pages) for ${endpoint}`);
       }
     } catch (error) {
       console.error(`Failed to get page ${pageCount} for ${endpoint}:`, error);
@@ -49,5 +48,6 @@ export async function getPaginatedCount(
     }
   }
 
+  console.log(`Completed pagination: ${totalCount.toLocaleString()} total items (${pageCount} pages) for ${endpoint}`);
   return totalCount;
 }
