@@ -21,6 +21,10 @@ const app = new Elysia()
         {
           url: `http://localhost:${API_PORT}`,
           description: 'Development server'
+        },
+        {
+          url: 'https://ohsnap-api.vercel.app',
+          description: 'Production server'
         }
       ],
       tags: [
@@ -34,7 +38,7 @@ const app = new Elysia()
         }
       ]
     },
-    provider: 'swagger-ui'
+    path: '/openapi'
   }))
   .get('/v1/cast', async ({ query }) => {
     try {
@@ -80,7 +84,7 @@ const app = new Elysia()
       fullCount: t.Optional(t.String({
         description: 'Pagination mode for follower/reaction counts. Default: "false" (fast, up to 10K). Set to "true" for complete counts',
         example: 'true',
-        enum: ['true', '1', 'false', '0']
+        enum: ['true', 'false']
       }))
     }),
     response: {
