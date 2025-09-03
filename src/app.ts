@@ -36,7 +36,7 @@ const app = new Elysia()
   }))
   .get('/v1/cast', async ({ query }) => {
     try {
-      const { fid, hash } = query;
+      const { fid, hash, fullCount } = query;
       
       if (!fid || !hash) {
         return { error: 'fid and hash parameters are required' };
@@ -44,6 +44,7 @@ const app = new Elysia()
 
       const fidNumber = parseInt(fid as string);
       const hashString = hash as string;
+      const useFullCount = fullCount === 'true' || fullCount === '1';
 
       if (isNaN(fidNumber)) {
         return { error: 'fid must be a valid number' };
@@ -54,7 +55,7 @@ const app = new Elysia()
       }
 
       // Get cast with all enrichments
-      const response = await getCastByFidAndHash(fidNumber, hashString);
+      const response = await getCastByFidAndHash(fidNumber, hashString, useFullCount);
       return response;
 
     } catch (error: any) {
@@ -73,7 +74,11 @@ const app = new Elysia()
       hash: t.String({
         description: 'Cast hash in hex format (0x...)',
         example: '0xcefff5d03bf661f4f9d709386816bd4d6ba49c72'
-      })
+      }),
+      fullCount: t.Optional(t.String({
+        description: 'Use full pagination for accurate counts (slower). Set to "true" or "1"',
+        example: 'true'
+      }))
     }),
     response: {
       200: t.Object({
@@ -163,13 +168,21 @@ const app = new Elysia()
     detail: {
       tags: ['Cast'],
       summary: 'Get cast by FID and hash',
-      description: 'Retrieves a cast with all enrichments including author profile, reactions, replies, and metadata. Compatible with Neynar API response format.',
+      description: 'Retrieves a cast with all enrichments including author profile, reactions, replies, and metadata. Compatible with Neynar API response format. Use fullCount=true for accurate follower/reaction counts (slower).',
       examples: [
         {
-          summary: 'Get a cast',
+          summary: 'Get a cast (fast)',
           value: {
             fid: '860783',
             hash: '0xcefff5d03bf661f4f9d709386816bd4d6ba49c72'
+          }
+        },
+        {
+          summary: 'Get a cast with full counts (slower but accurate)',
+          value: {
+            fid: '860783',
+            hash: '0xcefff5d03bf661f4f9d709386816bd4d6ba49c72',
+            fullCount: 'true'
           }
         }
       ]

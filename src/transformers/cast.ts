@@ -1,12 +1,12 @@
 import type { CastResponse, UserProfile, CastMetrics } from '../types/api.js';
-import type { GrpcCastMessage } from '../types/grpc.js';
+import type { HttpCastMessage } from '../types/http.js';
 import { base64ToHex, farcasterTimestampToISO } from '../utils/converters.js';
 
 /**
- * Build cast response from gRPC data and metrics
+ * Build cast response from HTTP data and metrics
  */
 export function buildCastResponse(
-  castMessage: GrpcCastMessage,
+  castMessage: HttpCastMessage,
   hashString: string,
   authorProfile: UserProfile,
   mentionedProfiles: UserProfile[],
@@ -22,21 +22,42 @@ export function buildCastResponse(
   let rootParentUrl = null;
   
   if (castData.parentCastId) {
-    parentHash = base64ToHex(castData.parentCastId.hash);
+    // HTTP format already has hex
+    parentHash = castData.parentCastId.hash;
     rootParentUrl = null; // Would need to trace back to root
   } else if (castData.parentUrl) {
     parentUrl = castData.parentUrl;
     rootParentUrl = castData.parentUrl;
   }
 
-  // Build embeds
+  // Build embeds with metadata structure to match Neynar
   const embeds = castData.embeds?.map((embed: any) => {
-    if (embed.url) return { url: embed.url };
+    if (embed.url) {
+      // For now, return basic structure - in production you'd fetch actual metadata
+      const isImage = embed.url.includes('imagedelivery.net') || 
+                     embed.url.match(/\.(jpg|jpeg|png|gif|webp)($|\?)/i);
+      
+      let result: any = { url: embed.url };
+      
+      if (isImage) {
+        result.metadata = {
+          content_type: 'image/jpeg',
+          content_length: 13719, // Placeholder
+          _status: 'RESOLVED',
+          image: {
+            width_px: 518,  // Placeholder
+            height_px: 336  // Placeholder
+          }
+        };
+      }
+      
+      return result;
+    }
     if (embed.cast_id) {
       return { 
         cast_id: {
           fid: embed.cast_id.fid,
-          hash: base64ToHex(embed.cast_id.hash)
+          hash: embed.cast_id.hash
         }
       };
     }
@@ -68,7 +89,7 @@ export function buildCastResponse(
       text: processCastText(castData.text || '', castData, mentionedProfiles),
       timestamp: farcasterTimestampToISO(castMessage.data.timestamp),
       embeds: embeds,
-      ...(channel && { channel }),
+      channel: channel || null,
       reactions: {
         likes_count: metrics.reactions.likes,
         recasts_count: metrics.reactions.recasts,

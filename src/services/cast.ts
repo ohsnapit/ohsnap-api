@@ -1,19 +1,19 @@
 import type { CastResponse, UserProfile, CastMetrics } from '../types/api.js';
-import * as grpc from './grpc.js';
+import * as http from './http.js';
 import { buildUserProfile, parseUserData, parseVerifications } from '../transformers/userProfile.js';
 import { buildCastResponse, calculateMentionRanges } from '../transformers/cast.js';
 
 /**
  * Get enriched user profile data
  */
-export async function getEnrichedUserProfile(fid: number): Promise<UserProfile> {
+export async function getEnrichedUserProfile(fid: number, fullCount = false): Promise<UserProfile> {
   try {
     const [userDataMessages, verificationMessages, followCounts, storageLimits, custodyAddress] = await Promise.all([
-      grpc.getUserDataByFid(fid),
-      grpc.getVerificationsByFid(fid),
-      grpc.getFollowCounts(fid),
-      grpc.getStorageLimitsByFid(fid),
-      grpc.getCustodyAddress(fid)
+      http.getUserDataByFid(fid),
+      http.getVerificationsByFid(fid),
+      http.getFollowCounts(fid, fullCount),
+      http.getStorageLimitsByFid(fid),
+      http.getCustodyAddress(fid)
     ]);
 
     // Get primary ETH address first to pass to getAuthAddresses
@@ -23,7 +23,7 @@ export async function getEnrichedUserProfile(fid: number): Promise<UserProfile> 
                              verificationData.ethAddresses[0];
 
     // Get auth addresses using primary ETH address
-    const authAddresses = await grpc.getAuthAddresses(fid, primaryEthAddress);
+    const authAddresses = await http.getAuthAddresses(fid, primaryEthAddress);
 
     return buildUserProfile(fid, userDataMessages, verificationMessages, followCounts, storageLimits, custodyAddress, authAddresses);
   } catch (error) {
@@ -39,10 +39,10 @@ export async function getEnrichedUserProfile(fid: number): Promise<UserProfile> 
 /**
  * Get cast metrics (replies and reactions)
  */
-export async function getCastMetrics(fid: number, hash: string): Promise<CastMetrics> {
+export async function getCastMetrics(fid: number, hash: string, fullCount = false): Promise<CastMetrics> {
   const [repliesCount, reactions] = await Promise.all([
-    grpc.getRepliesCount(fid, hash),
-    grpc.getReactionsCount(fid, hash)
+    http.getRepliesCount(fid, hash, fullCount),
+    http.getReactionsCount(fid, hash, fullCount)
   ]);
 
   return {
@@ -54,12 +54,12 @@ export async function getCastMetrics(fid: number, hash: string): Promise<CastMet
 /**
  * Get complete cast data with all enrichments
  */
-export async function getCastByFidAndHash(fid: number, hash: string): Promise<CastResponse> {
+export async function getCastByFidAndHash(fid: number, hash: string, fullCount = false): Promise<CastResponse> {
   // Get cast data and metrics in parallel
   const [castMessage, authorProfile, metrics] = await Promise.all([
-    grpc.getCast(fid, hash),
-    getEnrichedUserProfile(fid),
-    getCastMetrics(fid, hash)
+    http.getCast(fid, hash),
+    getEnrichedUserProfile(fid, fullCount),
+    getCastMetrics(fid, hash, fullCount)
   ]);
 
   if (!castMessage || !castMessage.data) {
@@ -76,12 +76,11 @@ export async function getCastByFidAndHash(fid: number, hash: string): Promise<Ca
   
   if (castData.mentions && castData.mentionsPositions) {
     for (let i = 0; i < castData.mentions.length; i++) {
-      const mentionedFidStr = castData.mentions[i];
-      if (!mentionedFidStr) continue;
-      const mentionedFid = parseInt(mentionedFidStr);
+      const mentionedFid = castData.mentions[i];
+      if (!mentionedFid) continue;
       
       try {
-        const mentionedProfile = await getEnrichedUserProfile(mentionedFid);
+        const mentionedProfile = await getEnrichedUserProfile(mentionedFid, false); // Don't use full count for mentioned profiles
         mentionedProfiles.push(mentionedProfile);
       } catch (error) {
         console.error(`Failed to get profile for FID ${mentionedFid}:`, error);
@@ -97,7 +96,7 @@ export async function getCastByFidAndHash(fid: number, hash: string): Promise<Ca
   try {
     // For now, hardcode Warpcast as default app since signer-to-app mapping is complex
     // In a full implementation, this would require a database of signer keys to app FIDs
-    appData = await grpc.getAppProfile(9152); // Warpcast FID
+    appData = await http.getAppProfile(9152); // Warpcast FID
   } catch (error) {
     console.error('Failed to get app data:', error);
   }

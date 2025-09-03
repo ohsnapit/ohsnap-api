@@ -1,12 +1,12 @@
 import type { UserProfile, FollowCounts } from '../types/api.js';
-import type { GrpcUserDataMessage, GrpcVerificationMessage, GrpcStorageLimits } from '../types/grpc.js';
+import type { HttpUserDataMessage, HttpVerificationMessage, HttpStorageLimits } from '../types/http.js';
 import { USER_DATA_TYPES, DEFAULT_LOCATION } from '../utils/constants.js';
-import { parseGeoLocation, parseLocationText, hexToBase58 } from '../utils/converters.js';
+import { parseGeoLocation, parseLocationText } from '../utils/converters.js';
 
 /**
  * Parse user data messages into profile data
  */
-export function parseUserData(messages: GrpcUserDataMessage[]): Partial<UserProfile> {
+export function parseUserData(messages: HttpUserDataMessage[]): Partial<UserProfile> {
   const profile: Partial<UserProfile> = {
     profile: {},
     verified_addresses: {
@@ -99,7 +99,7 @@ export function parseUserData(messages: GrpcUserDataMessage[]): Partial<UserProf
 /**
  * Parse verification messages into structured addresses
  */
-export function parseVerifications(messages: GrpcVerificationMessage[]): {
+export function parseVerifications(messages: HttpVerificationMessage[]): {
   ethAddresses: string[];
   solAddresses: string[];
   allVerifications: string[];
@@ -112,24 +112,22 @@ export function parseVerifications(messages: GrpcVerificationMessage[]): {
     const verificationData = message.data.verificationAddAddressBody;
     if (verificationData && verificationData.address) {
       if (verificationData.protocol === 'PROTOCOL_SOLANA') {
-        // Solana address - decode from base64 to base58
+        // Solana address - already in correct format
         try {
-          const decodedBytes = Buffer.from(verificationData.address, 'base64');
-          const solAddressHex = decodedBytes.toString('hex');
-          const solAddressBase58 = hexToBase58(solAddressHex);
-          solAddresses.push(solAddressBase58);
-          allVerifications.push(solAddressBase58);
+          const solAddress = verificationData.address;
+          solAddresses.push(solAddress);
+          allVerifications.push(solAddress);
         } catch (error) {
-          console.error('Failed to decode Solana address:', error);
+          console.error('Failed to process Solana address:', error);
         }
       } else {
-        // ETH address (no protocol field means Ethereum) - convert bytes to hex
+        // ETH address - HTTP format is already hex
         try {
-          const ethAddress = ('0x' + Buffer.from(verificationData.address, 'base64').toString('hex')).toLowerCase();
+          const ethAddress = verificationData.address.toLowerCase();
           ethAddresses.push(ethAddress);
           allVerifications.push(ethAddress);
         } catch (error) {
-          console.error('Failed to decode Ethereum address:', error);
+          console.error('Failed to process Ethereum address:', error);
         }
       }
     }
@@ -141,23 +139,23 @@ export function parseVerifications(messages: GrpcVerificationMessage[]): {
 /**
  * Check if user has Pro subscription
  */
-export function checkProSubscription(storageLimits: GrpcStorageLimits | null): {
+export function checkProSubscription(storageLimits: HttpStorageLimits | null): {
   hasPro: boolean;
   subscribedAt?: string;
   expiresAt?: string;
 } {
-  if (!storageLimits?.tierSubscriptions) {
+  if (!storageLimits?.tier_subscriptions) {
     return { hasPro: false };
   }
 
-  const proSubscription = storageLimits.tierSubscriptions.find(sub => 
-    sub.tierType === 'Pro' && parseInt(sub.expiresAt) > Date.now() / 1000
+  const proSubscription = storageLimits.tier_subscriptions.find(sub => 
+    sub.tier_type === 'Pro' && parseInt(String(sub.expires_at)) > Date.now() / 1000
   );
 
   if (proSubscription) {
-    const expiresAt = new Date(parseInt(proSubscription.expiresAt) * 1000).toISOString();
+    const expiresAt = new Date(parseInt(String(proSubscription.expires_at)) * 1000).toISOString();
     // Estimate subscription start as 1 year before expiry for annual subscriptions
-    const subscribedAt = new Date(parseInt(proSubscription.expiresAt) * 1000 - (365 * 24 * 60 * 60 * 1000)).toISOString();
+    const subscribedAt = new Date(parseInt(String(proSubscription.expires_at)) * 1000 - (365 * 24 * 60 * 60 * 1000)).toISOString();
     
     return {
       hasPro: true,
@@ -174,10 +172,10 @@ export function checkProSubscription(storageLimits: GrpcStorageLimits | null): {
  */
 export function buildUserProfile(
   fid: number,
-  userDataMessages: GrpcUserDataMessage[],
-  verificationMessages: GrpcVerificationMessage[],
+  userDataMessages: HttpUserDataMessage[],
+  verificationMessages: HttpVerificationMessage[],
   followCounts: FollowCounts,
-  storageLimits: GrpcStorageLimits | null,
+  storageLimits: HttpStorageLimits | null,
   custodyAddress?: string | null,
   authAddresses?: Array<{address: string, app?: any}>
 ): UserProfile {
@@ -208,6 +206,10 @@ export function buildUserProfile(
 
   // Determine power badge (simplified logic)
   const powerBadge = followCounts.followers > 10000 || hasPro;
+  
+  // Calculate score similar to Neynar's approach
+  const baseScore = Math.min(0.99, Math.max(0.1, followCounts.followers / 100000));
+  const adjustedScore = Math.min(0.99, baseScore * (1 + (verificationData.allVerifications.length * 0.1)));
 
   const profile: UserProfile = {
     object: 'user',
@@ -226,13 +228,16 @@ export function buildUserProfile(
     profile: parsedUserData.profile,
     follower_count: followCounts.followers,
     following_count: followCounts.following,
-    verifications: verificationData.allVerifications,
-    verified_addresses: mergedVerifiedAddresses,
+    verifications: verificationData.ethAddresses, // Match Neynar - only ETH addresses
+    verified_addresses: {
+      eth_addresses: mergedVerifiedAddresses.eth_addresses,
+      sol_addresses: mergedVerifiedAddresses.sol_addresses.slice(0, 1), // Only first SOL address like Neynar
+      primary: mergedVerifiedAddresses.primary
+    },
     auth_addresses: authAddresses || [],
     verified_accounts: parsedUserData.verified_accounts,
     power_badge: powerBadge,
-    url: parsedUserData.url,
-    score: Math.min(0.99, Math.max(0.1, followCounts.followers / 100000))
+    score: adjustedScore
   };
 
   return profile;

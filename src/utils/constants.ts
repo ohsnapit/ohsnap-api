@@ -1,5 +1,6 @@
 export const GRPC_CONTAINER = process.env.GRPC_CONTAINER || 'snapchain-ohsnap-snapchain-1';
 export const GRPC_HOST = process.env.GRPC_HOST || 'localhost:3383';
+export const HTTP_HOST = process.env.HTTP_HOST || 'http://localhost:3381';
 
 export const USER_DATA_TYPES = {
   USERNAME: 'USER_DATA_TYPE_USERNAME',
@@ -43,3 +44,6 @@ export const EXEC_TIMEOUT = parseInt(process.env.EXEC_TIMEOUT || '25000');
 export const EXEC_MAX_BUFFER = parseInt(process.env.EXEC_MAX_BUFFER || '104857600'); // 100MB
 
 export const API_PORT = parseInt(process.env.API_PORT || '3001');
+
+// HTTP API Configuration
+export const HTTP_BASE_URL = `${HTTP_HOST}/v1`;

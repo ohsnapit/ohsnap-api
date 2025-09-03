@@ -17,7 +17,7 @@ export interface CastResponse {
       id: string;
       name: string;
       image_url: string;
-    };
+    } | null;
     reactions: {
       likes_count: number;
       recasts_count: number;
