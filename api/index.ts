@@ -19,10 +19,6 @@ const app = new Elysia()
       },
       servers: [
         {
-          url: `http://localhost:${API_PORT}`,
-          description: 'Development server'
-        },
-        {
           url: 'https://ohsnap-api.vercel.app',
           description: 'Production server'
         }
