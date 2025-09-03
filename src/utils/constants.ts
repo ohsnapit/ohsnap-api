@@ -1,5 +1,5 @@
-export const GRPC_CONTAINER = 'snapchain-ohsnap-snapchain-1';
-export const GRPC_HOST = 'localhost:3383';
+export const GRPC_CONTAINER = process.env.GRPC_CONTAINER || 'snapchain-ohsnap-snapchain-1';
+export const GRPC_HOST = process.env.GRPC_HOST || 'localhost:3383';
 
 export const USER_DATA_TYPES = {
   USERNAME: 'USER_DATA_TYPE_USERNAME',
@@ -39,5 +39,7 @@ export const DEFAULT_LOCATION = {
   country_code: 'unknown',
 };
 
-export const EXEC_TIMEOUT = 5000;
-export const EXEC_MAX_BUFFER = 1024 * 1024 * 10; // 10MB
+export const EXEC_TIMEOUT = parseInt(process.env.EXEC_TIMEOUT || '25000');
+export const EXEC_MAX_BUFFER = parseInt(process.env.EXEC_MAX_BUFFER || '104857600'); // 100MB
+
+export const API_PORT = parseInt(process.env.API_PORT || '3001');

@@ -1,5 +1,6 @@
 import { Elysia } from 'elysia';
 import { getCastByFidAndHash } from './services/cast.js';
+import { API_PORT } from './utils/constants.js';
 
 const app = new Elysia()
   .get('/v1/cast', async ({ query }) => {
@@ -34,7 +35,7 @@ const app = new Elysia()
     }
   })
   .get('/health', () => ({ status: 'ok', timestamp: new Date().toISOString() }))
-  .listen(3001);
+  .listen(API_PORT);
 
 console.log(`🦊 Elysia is running at ${app.server?.hostname}:${app.server?.port}`);
 

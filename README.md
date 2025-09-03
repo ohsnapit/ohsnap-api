@@ -85,6 +85,43 @@ Response:
 
 Returns server status and timestamp.
 
+## Sample Requests
+
+### Get a Cast
+
+```bash
+# Using curl
+curl "http://localhost:3001/v1/cast?fid=3&hash=0x1234567890abcdef1234567890abcdef12345678"
+
+# Using JavaScript fetch
+const response = await fetch('http://localhost:3001/v1/cast?fid=3&hash=0x1234567890abcdef1234567890abcdef12345678');
+const data = await response.json();
+console.log(data);
+```
+
+### Health Check
+
+```bash
+# Using curl
+curl "http://localhost:3001/health"
+
+# Response
+{
+  "status": "ok",
+  "timestamp": "2024-01-15T10:30:00.000Z"
+}
+```
+
+### Test Script
+
+Run the included test script to see a formatted API response:
+
+```bash
+bun test-cast.ts
+```
+
+This will fetch cast data for FID 3 with hash `0x029f7cceef2f0078f34949d6e339070fc6eb47b4` and display the formatted JSON response.
+
 ## Architecture
 
 ### Service Layer

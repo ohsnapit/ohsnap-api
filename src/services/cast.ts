@@ -8,14 +8,16 @@ import { buildCastResponse, calculateMentionRanges } from '../transformers/cast.
  */
 export async function getEnrichedUserProfile(fid: number): Promise<UserProfile> {
   try {
-    const [userDataMessages, verificationMessages, followCounts, storageLimits] = await Promise.all([
+    const [userDataMessages, verificationMessages, followCounts, storageLimits, custodyAddress, authAddresses] = await Promise.all([
       grpc.getUserDataByFid(fid),
       grpc.getVerificationsByFid(fid),
       grpc.getFollowCounts(fid),
-      grpc.getStorageLimitsByFid(fid)
+      grpc.getStorageLimitsByFid(fid),
+      grpc.getCustodyAddress(fid),
+      grpc.getAuthAddresses(fid)
     ]);
 
-    return buildUserProfile(fid, userDataMessages, verificationMessages, followCounts, storageLimits);
+    return buildUserProfile(fid, userDataMessages, verificationMessages, followCounts, storageLimits, custodyAddress, authAddresses);
   } catch (error) {
     console.error(`Failed to build user profile for FID ${fid}:`, error);
     // Return minimal profile on error
@@ -82,6 +84,16 @@ export async function getCastByFidAndHash(fid: number, hash: string): Promise<Ca
   // Calculate mention ranges
   const mentionedProfilesRanges = calculateMentionRanges(castData, mentionedProfiles);
 
+  // Get app data from signer (try to extract app FID from signer key)
+  let appData = null;
+  try {
+    // For now, hardcode Warpcast as default app since signer-to-app mapping is complex
+    // In a full implementation, this would require a database of signer keys to app FIDs
+    appData = await grpc.getAppProfile(9152); // Warpcast FID
+  } catch (error) {
+    console.error('Failed to get app data:', error);
+  }
+
   // Build final response
   return buildCastResponse(
     castMessage,
@@ -89,6 +101,7 @@ export async function getCastByFidAndHash(fid: number, hash: string): Promise<Ca
     authorProfile,
     mentionedProfiles,
     mentionedProfilesRanges,
-    metrics
+    metrics,
+    appData
   );
 }

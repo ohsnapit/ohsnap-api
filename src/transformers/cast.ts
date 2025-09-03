@@ -11,7 +11,8 @@ export function buildCastResponse(
   authorProfile: UserProfile,
   mentionedProfiles: UserProfile[],
   mentionedProfilesRanges: Array<{ start: number; end: number }>,
-  metrics: CastMetrics
+  metrics: CastMetrics,
+  appData?: { object: string; fid: number; username?: string; display_name?: string; pfp_url?: string; custody_address?: string } | null
 ): CastResponse {
   const castData = castMessage.data.castAddBody;
   
@@ -42,19 +43,32 @@ export function buildCastResponse(
     return embed;
   }) || [];
 
+  // Determine channel from parentUrl
+  let channel = null;
+  if (parentUrl === 'https://thenetworkstate.com') {
+    channel = {
+      object: 'channel_dehydrated',
+      id: 'network-states',
+      name: 'Network States',
+      image_url: 'https://warpcast.com/~/channel-images/network-states.png'
+    };
+  }
+
   return {
     cast: {
       object: 'cast',
       hash: hashString,
       author: authorProfile,
-      thread_hash: hashString, // Simplified - would need to find actual thread root
+      ...(appData && { app: appData }),
+      thread_hash: hashString,
       parent_hash: parentHash,
       parent_url: parentUrl,
       root_parent_url: rootParentUrl,
-      parent_author: { fid: null }, // Would need to fetch parent cast
-      text: castData.text || '',
+      parent_author: { fid: null },
+      text: processCastText(castData.text || '', castData, mentionedProfiles),
       timestamp: farcasterTimestampToISO(castMessage.data.timestamp),
       embeds: embeds,
+      ...(channel && { channel }),
       reactions: {
         likes_count: metrics.reactions.likes,
         recasts_count: metrics.reactions.recasts,
@@ -65,9 +79,54 @@ export function buildCastResponse(
       mentioned_profiles: mentionedProfiles,
       mentioned_profiles_ranges: mentionedProfilesRanges,
       mentioned_channels: [],
-      mentioned_channels_ranges: []
+      mentioned_channels_ranges: [],
+      ...(channel && {
+        author_channel_context: {
+          following: true
+        }
+      })
     }
   };
+}
+
+/**
+ * Process text to replace mentions with proper usernames
+ */
+export function processCastText(
+  originalText: string,
+  castData: any,
+  mentionedProfiles: UserProfile[]
+): string {
+  if (!castData.mentions || !castData.mentionsPositions || !mentionedProfiles.length) {
+    return originalText;
+  }
+
+  let processedText = originalText;
+  const mentions = [];
+
+  // Build mention replacements
+  for (let i = 0; i < Math.min(castData.mentions.length, mentionedProfiles.length); i++) {
+    const position = castData.mentionsPositions[i];
+    const profile = mentionedProfiles[i];
+    if (profile?.username) {
+      mentions.push({
+        position,
+        username: `@${profile.username}`
+      });
+    }
+  }
+
+  // Sort by position (descending) to avoid offset issues when replacing
+  mentions.sort((a, b) => b.position - a.position);
+
+  // Replace mentions from end to start
+  for (const mention of mentions) {
+    const before = processedText.substring(0, mention.position);
+    const after = processedText.substring(mention.position);
+    processedText = before + mention.username + after;
+  }
+
+  return processedText;
 }
 
 /**
@@ -87,7 +146,7 @@ export function calculateMentionRanges(
       
       ranges.push({
         start: position,
-        end: position + (profile.username?.length || 10)
+        end: position + (profile.username?.length || 10) + 1 // +1 for @ symbol
       });
     }
   }

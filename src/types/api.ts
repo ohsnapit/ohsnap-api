@@ -75,7 +75,7 @@ export interface UserProfile {
   };
   auth_addresses?: Array<{
     address: string;
-    app: { object: string; fid: number };
+    app?: { object: string; fid: number };
   }>;
   verified_accounts?: Array<{
     platform: string;
