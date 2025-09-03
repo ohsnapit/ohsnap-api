@@ -75,9 +75,10 @@ export function parseUserData(messages: GrpcUserDataMessage[]): Partial<UserProf
         break;
       case USER_DATA_TYPES.PRIMARY_ADDRESS_ETHEREUM:
         if (profile.verified_addresses) {
-          profile.verified_addresses.primary.eth_address = value;
-          if (!profile.verified_addresses.eth_addresses.includes(value)) {
-            profile.verified_addresses.eth_addresses.push(value);
+          const normalizedValue = value.toLowerCase();
+          profile.verified_addresses.primary.eth_address = normalizedValue;
+          if (!profile.verified_addresses.eth_addresses.includes(normalizedValue)) {
+            profile.verified_addresses.eth_addresses.push(normalizedValue);
           }
         }
         break;
@@ -124,7 +125,7 @@ export function parseVerifications(messages: GrpcVerificationMessage[]): {
       } else {
         // ETH address (no protocol field means Ethereum) - convert bytes to hex
         try {
-          const ethAddress = '0x' + Buffer.from(verificationData.address, 'base64').toString('hex');
+          const ethAddress = ('0x' + Buffer.from(verificationData.address, 'base64').toString('hex')).toLowerCase();
           ethAddresses.push(ethAddress);
           allVerifications.push(ethAddress);
         } catch (error) {

@@ -208,14 +208,27 @@ export async function getReactionsCount(fid: number, hash: string): Promise<Reac
 
 /**
  * Get auth addresses from on-chain signers
+ * Returns the primary verified address to match Neynar API behavior
  */
-export async function getAuthAddresses(fid: number): Promise<Array<{address: string, app?: any}>> {
+export async function getAuthAddresses(fid: number, primaryEthAddress?: string): Promise<Array<{address: string, app?: any}>> {
+  // If we have a primary ETH address, use that as the auth address (matches Neynar behavior)
+  if (primaryEthAddress) {
+    return [{
+      address: primaryEthAddress.toLowerCase(),
+      app: {
+        object: 'user_dehydrated',
+        fid: 9152 // Default to Warpcast for now - would need proper app mapping
+      }
+    }];
+  }
+
+  // Fallback to most recent signer if no primary address
   const data = JSON.stringify({ fid });
   const command = `-d '${data}' localhost:3383 HubService/GetOnChainSignersByFid`;
   
   try {
     const response = await execGrpcCommand(command);
-    const authAddresses: Array<{address: string, app?: any}> = [];
+    const authAddresses: Array<{address: string, app?: any, timestamp: number}> = [];
     
     if (response.events) {
       for (const event of response.events) {
@@ -229,20 +242,34 @@ export async function getAuthAddresses(fid: number): Promise<Array<{address: str
               app: event.signerEventBody.metadata ? {
                 object: 'user_dehydrated',
                 fid: 9152 // Default to Warpcast for now - would need proper app mapping
-              } : undefined
+              } : undefined,
+              timestamp: parseInt(event.blockTimestamp)
             });
           } catch (decodeError) {
             // If decoding fails, keep the original base64 format
             authAddresses.push({
               address: event.signerEventBody.key,
-              app: undefined
+              app: undefined,
+              timestamp: parseInt(event.blockTimestamp)
             });
           }
         }
       }
     }
     
-    return authAddresses;
+    // Sort by timestamp (most recent first) and return only the most recent signer
+    if (authAddresses.length > 0) {
+      authAddresses.sort((a, b) => b.timestamp - a.timestamp);
+      const mostRecentSigner = authAddresses[0];
+      if (mostRecentSigner) {
+        return [{
+          address: mostRecentSigner.address,
+          app: mostRecentSigner.app
+        }];
+      }
+    }
+    
+    return [];
   } catch (error: any) {
     console.error(`Failed to get auth addresses for FID ${fid}:`, error.message);
     return [];

@@ -1,6 +1,6 @@
 import type { CastResponse, UserProfile, CastMetrics } from '../types/api.js';
 import * as grpc from './grpc.js';
-import { buildUserProfile } from '../transformers/userProfile.js';
+import { buildUserProfile, parseUserData, parseVerifications } from '../transformers/userProfile.js';
 import { buildCastResponse, calculateMentionRanges } from '../transformers/cast.js';
 
 /**
@@ -8,14 +8,22 @@ import { buildCastResponse, calculateMentionRanges } from '../transformers/cast.
  */
 export async function getEnrichedUserProfile(fid: number): Promise<UserProfile> {
   try {
-    const [userDataMessages, verificationMessages, followCounts, storageLimits, custodyAddress, authAddresses] = await Promise.all([
+    const [userDataMessages, verificationMessages, followCounts, storageLimits, custodyAddress] = await Promise.all([
       grpc.getUserDataByFid(fid),
       grpc.getVerificationsByFid(fid),
       grpc.getFollowCounts(fid),
       grpc.getStorageLimitsByFid(fid),
-      grpc.getCustodyAddress(fid),
-      grpc.getAuthAddresses(fid)
+      grpc.getCustodyAddress(fid)
     ]);
+
+    // Get primary ETH address first to pass to getAuthAddresses
+    const parsedUserData = parseUserData(userDataMessages);
+    const verificationData = parseVerifications(verificationMessages);
+    const primaryEthAddress = parsedUserData.verified_addresses?.primary?.eth_address || 
+                             verificationData.ethAddresses[0];
+
+    // Get auth addresses using primary ETH address
+    const authAddresses = await grpc.getAuthAddresses(fid, primaryEthAddress);
 
     return buildUserProfile(fid, userDataMessages, verificationMessages, followCounts, storageLimits, custodyAddress, authAddresses);
   } catch (error) {
