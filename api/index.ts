@@ -90,7 +90,7 @@ const app = new Elysia()
       }),
       fullCount: t.Optional(t.String({
         description: 'Pagination mode for follower/reaction counts. Default: "false" (fast, up to 10K). Set to "true" for complete counts',
-        example: 'true',
+        example: 'false',
         enum: ['true', 'false']
       }))
     }),
