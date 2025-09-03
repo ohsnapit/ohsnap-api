@@ -3,7 +3,9 @@
   "module": "src/index.ts",
   "scripts": {
     "start": "bun run src/index.ts",
-    "dev": "bun --watch src/index.ts"
+    "dev": "bun --watch src/index.ts",
+    "build": "bun install",
+    "vercel-build": "bun install"
   },
   "type": "module",
   "private": true,
