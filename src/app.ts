@@ -188,10 +188,8 @@ const app = new Elysia()
       description: 'Returns the current status and timestamp of the API server'
     }
   })
-// Only call listen in non-serverless environments
-if (process.env.NODE_ENV !== 'production' || process.env.VERCEL !== '1') {
-  app.listen(API_PORT);
-  console.log(`🦊 Elysia is running at ${app.server?.hostname}:${app.server?.port}`);
-}
+  .listen(API_PORT);
+
+console.log(`🦊 Elysia is running at ${app.server?.hostname}:${app.server?.port}`);
 
 export default app;
