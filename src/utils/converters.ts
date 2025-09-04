@@ -92,7 +92,7 @@ export function parseGeoLocation(value: string): { latitude: number; longitude: 
  * Reverse geocoding using LocationIQ API to convert coordinates to location
  */
 export async function reverseGeocode(latitude: number, longitude: number): Promise<{ city: string; state: string; state_code: string; country: string; country_code: string } | null> {
-  const { LOCATION_IQ_API_KEY } = await import('./constants');
+  const { LOCATION_IQ_API_KEY } = await import('./constants.js');
   
   if (!LOCATION_IQ_API_KEY) {
     console.warn('LOCATION_IQ_API_KEY not configured');
