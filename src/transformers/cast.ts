@@ -33,20 +33,21 @@ export function buildCastResponse(
   // Build embeds with metadata structure to match Neynar
   const embeds = castData.embeds?.map((embed: any) => {
     if (embed.url) {
-      // For now, return basic structure - in production you'd fetch actual metadata
+      // Detect image URLs by checking for image hosting domains or file extensions
       const isImage = embed.url.includes('imagedelivery.net') || 
+                     embed.url.includes('imgur.com') ||
                      embed.url.match(/\.(jpg|jpeg|png|gif|webp)($|\?)/i);
       
       let result: any = { url: embed.url };
       
       if (isImage) {
         result.metadata = {
-          content_type: 'image/jpeg',
-          content_length: 13719, // Placeholder
-          _status: 'RESOLVED',
+          content_type: 'image/jpeg_placeholder',
+          content_length: 13719,
+          _status: 'RESOLVED_placeholder',
           image: {
-            width_px: 518,  // Placeholder
-            height_px: 336  // Placeholder
+            width_px: 518,
+            height_px: 336
           }
         };
       }
@@ -64,15 +65,10 @@ export function buildCastResponse(
     return embed;
   }) || [];
 
-  // Determine channel from parentUrl - match Neynar exactly
+  // Determine channel from parentUrl dynamically
   let channel: { object: string; id: string; name: string; image_url: string } | null = null;
-  if (parentUrl === 'https://thenetworkstate.com') {
-    channel = {
-      object: 'channel_dehydrated',
-      id: 'network-states',
-      name: 'Network States',
-      image_url: 'https://warpcast.com/~/channel-images/network-states.png'
-    };
+  if (parentUrl) {
+    channel = extractChannelFromUrl(parentUrl);
   }
 
   return {
@@ -146,6 +142,45 @@ export function processCastText(
   }
 
   return processedText;
+}
+
+/**
+ * Extract channel information from parentUrl dynamically
+ */
+function extractChannelFromUrl(parentUrl: string): { object: string; id: string; name: string; image_url: string } | null {
+  try {
+    const url = new URL(parentUrl);
+    
+    // Handle Warpcast channel URLs: https://warpcast.com/~/channel/channelname
+    if (url.hostname === 'warpcast.com' && url.pathname.startsWith('/~/channel/')) {
+      const channelId = url.pathname.split('/~/channel/')[1];
+      if (channelId && channelId.trim()) {
+        return {
+          object: 'channel_dehydrated',
+          id: channelId,
+          name: channelId.charAt(0).toUpperCase() + channelId.slice(1).replace(/-/g, ' '),
+          image_url: `https://warpcast.com/~/channel-images/${channelId}.png`
+        };
+      }
+    }
+    
+    // For any other URL, extract domain-based channel info
+    const domain = url.hostname.replace('www.', '');
+    const channelId = domain.split('.')[0];
+    
+    if (channelId && channelId.trim()) {
+      return {
+        object: 'channel_dehydrated',
+        id: channelId,
+        name: channelId.charAt(0).toUpperCase() + channelId.slice(1),
+        image_url: `https://warpcast.com/~/channel-images/${channelId}.png_placeholder`
+      };
+    }
+    
+    return null;
+  } catch (error) {
+    return null;
+  }
 }
 
 /**
