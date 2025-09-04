@@ -48,3 +48,5 @@ export const API_PORT = parseInt(process.env.API_PORT || '3001');
 // HTTP API Configuration
 export const HTTP_BASE_URL = `${HTTP_HOST}/v1`;
 export const HTTP_IP = process.env.HTTP_IP || 'localhost';
+
+export const LOCATION_IQ_API_KEY = process.env.LOCATION_IQ_API_KEY || '';

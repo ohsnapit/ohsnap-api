@@ -1,12 +1,12 @@
 import type { UserProfile, FollowCounts } from '../types/api.js';
 import type { HttpUserDataMessage, HttpVerificationMessage, HttpStorageLimits } from '../types/http.js';
 import { USER_DATA_TYPES, DEFAULT_LOCATION } from '../utils/constants.js';
-import { parseGeoLocation, parseLocationText } from '../utils/converters.js';
+import { parseGeoLocation, reverseGeocode } from '../utils/converters.js';
 
 /**
  * Parse user data messages into profile data
  */
-export function parseUserData(messages: HttpUserDataMessage[]): Partial<UserProfile> {
+export async function parseUserData(messages: HttpUserDataMessage[]): Promise<Partial<UserProfile>> {
   const profile: Partial<UserProfile> = {
     profile: {},
     verified_addresses: {
@@ -42,23 +42,28 @@ export function parseUserData(messages: HttpUserDataMessage[]): Partial<UserProf
       case USER_DATA_TYPES.LOCATION:
         const coords = parseGeoLocation(value);
         if (coords) {
+          // We have coordinates, use reverse geocoding to get location details
+          const address = await reverseGeocode(coords.latitude, coords.longitude);
           if (!profile.profile) profile.profile = {};
           profile.profile.location = {
             latitude: coords.latitude,
             longitude: coords.longitude,
-            address: DEFAULT_LOCATION // For geo coordinates, we use default until we have geocoding
+            address: address || DEFAULT_LOCATION
           };
         } else {
-          // Try to parse as text location
-          const address = parseLocationText(value);
-          if (address) {
-            if (!profile.profile) profile.profile = {};
-            profile.profile.location = {
-              latitude: 0,
-              longitude: 0,
-              address: address
-            };
-          }
+          // Store raw text as-is - it's probably a place name
+          if (!profile.profile) profile.profile = {};
+          profile.profile.location = {
+            latitude: 0,
+            longitude: 0,
+            address: {
+              city: value,
+              state: 'Unknown',
+              state_code: 'unknown', 
+              country: 'Unknown',
+              country_code: 'unknown'
+            }
+          };
         }
         break;
       case USER_DATA_TYPES.BANNER:
@@ -170,7 +175,7 @@ export function checkProSubscription(storageLimits: HttpStorageLimits | null): {
 /**
  * Build complete user profile from all data sources
  */
-export function buildUserProfile(
+export async function buildUserProfile(
   fid: number,
   userDataMessages: HttpUserDataMessage[],
   verificationMessages: HttpVerificationMessage[],
@@ -178,8 +183,8 @@ export function buildUserProfile(
   storageLimits: HttpStorageLimits | null,
   custodyAddress?: string | null,
   authAddresses?: Array<{address: string, app?: any}>
-): UserProfile {
-  const parsedUserData = parseUserData(userDataMessages);
+): Promise<UserProfile> {
+  const parsedUserData = await parseUserData(userDataMessages);
   const verificationData = parseVerifications(verificationMessages);
   const { hasPro, subscribedAt, expiresAt } = checkProSubscription(storageLimits);
 

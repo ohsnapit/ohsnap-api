@@ -87,35 +87,42 @@ export function parseGeoLocation(value: string): { latitude: number; longitude: 
   return null;
 }
 
+
 /**
- * Parse location text into address components
+ * Reverse geocoding using LocationIQ API to convert coordinates to location
  */
-export function parseLocationText(value: string): { city: string; state: string; state_code: string; country: string; country_code: string } | null {
-  if (!value || value.trim() === '') return null;
+export async function reverseGeocode(latitude: number, longitude: number): Promise<{ city: string; state: string; state_code: string; country: string; country_code: string } | null> {
+  const { LOCATION_IQ_API_KEY } = await import('./constants');
   
-  // Simple text parsing - could be enhanced with a geocoding service
-  const parts = value.split(',').map(s => s.trim());
-  
-  if (parts.length >= 2) {
-    const city = parts[0] || 'Unknown';
-    const country = parts[parts.length - 1] || 'Unknown';
-    const state = parts.length > 2 ? parts[1] || 'Unknown' : 'Unknown';
+  if (!LOCATION_IQ_API_KEY) {
+    console.warn('LOCATION_IQ_API_KEY not configured');
+    return null;
+  }
+
+  try {
+    const url = `https://us1.locationiq.com/v1/reverse?key=${LOCATION_IQ_API_KEY}&lat=${latitude}&lon=${longitude}&format=json&addressdetails=1`;
+    
+    const response = await fetch(url);
+    
+    if (!response.ok) {
+      console.error(`LocationIQ API error: ${response.status}`);
+      return null;
+    }
+
+    const data = await response.json() as { address?: any };
+    
+    const address = data.address || {};
     
     return {
-      city,
-      state,
-      state_code: (state || 'unknown').toLowerCase().replace(' ', ''),
-      country,
-      country_code: (country || 'unknown').toLowerCase().replace(' ', ''),
+      city: address.city || address.town || address.village || address.county || 'Unknown',
+      state: address.state || address.region || 'Unknown',
+      state_code: address.state || address.region || 'unknown',
+      country: address.country || 'Unknown',
+      country_code: address.country_code || 'unknown',
     };
+    
+  } catch (error) {
+    console.error('Reverse geocoding error:', error);
+    return null;
   }
-  
-  // Single location name
-  return {
-    city: value,
-    state: 'Unknown',
-    state_code: 'unknown',
-    country: 'Unknown',
-    country_code: 'unknown',
-  };
 }
