@@ -18,10 +18,10 @@ const app = new Elysia()
         }
       },
       servers: [
-        {
-          url: `${HTTP_IP}:${API_PORT}`,
+        ...(process.env.NODE_ENV !== 'production' && !process.env.VERCEL ? [{
+          url: `http://${HTTP_IP}:${API_PORT}`,
           description: 'Development server'
-        },
+        }] : []),
         {
           url: 'https://ohsnap-api.vercel.app',
           description: 'Production server'
@@ -432,12 +432,9 @@ const app = new Elysia()
       summary: 'Health check',
       description: 'Returns the current status and timestamp of the API server'
     }
-  });
+  })
+  .listen(API_PORT);
 
-// For local development - only listen when not in serverless environment
-if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
-  app.listen(API_PORT);
-  console.log(`🦊 Elysia is running at ${app.server?.hostname}:${app.server?.port}`);
-}
+console.log(`🦊 Elysia is running at ${app.server?.hostname}:${app.server?.port}`);
 
 export default app;
