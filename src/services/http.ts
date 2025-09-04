@@ -117,6 +117,26 @@ export async function getCast(fid: number, hash: string): Promise<HttpCastMessag
 }
 
 /**
+ * Get casts by FID in reverse chronological order
+ */
+export async function getCastsByFid(
+  fid: number, 
+  pageToken?: string,
+  pageSize: number = 25,
+  reverse: boolean = true
+): Promise<HttpResponse<HttpCastMessage>> {
+  const params: Record<string, string | number | boolean> = { 
+    fid,
+    pageSize,
+    reverse
+  };
+  
+  if (pageToken) params.pageToken = pageToken;
+  
+  return httpRequest<HttpResponse<HttpCastMessage>>('castsByFid', params);
+}
+
+/**
  * Get user data by FID
  */
 export async function getUserDataByFid(fid: number, userDataType?: string): Promise<HttpUserDataMessage[]> {
