@@ -5,9 +5,9 @@ import { API_PORT } from './utils/constants.js';
 import { openApiConfig } from './config/openapi.js';
 
 // Schemas
-import { castQuerySchema, castResponseSchema, castExamples } from './schemas/cast.ts';
-import { userQuerySchema, userResponseSchema, userExamples, userCastsQuerySchema, userCastsResponseSchema, userCastsExamples } from './schemas/user.ts';
-import { healthResponseSchema } from './schemas/health.ts';
+import { castQuerySchema, castResponseSchema, castExamples } from './schemas/cast.js';
+import { userQuerySchema, userResponseSchema, userExamples, userCastsQuerySchema, userCastsResponseSchema, userCastsExamples } from './schemas/user.js';
+import { healthResponseSchema } from './schemas/health.js';
 
 const app = new Elysia()
   .use(openapi(openApiConfig))
