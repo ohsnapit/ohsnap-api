@@ -17,7 +17,7 @@ export async function getEnrichedUserProfile(fid: number, fullCount = false): Pr
     ]);
 
     // Get primary ETH address first to pass to getAuthAddresses
-    const parsedUserData = parseUserData(userDataMessages);
+    const parsedUserData = await parseUserData(userDataMessages);
     const verificationData = parseVerifications(verificationMessages);
     const primaryEthAddress = parsedUserData.verified_addresses?.primary?.eth_address || 
                              verificationData.ethAddresses[0];
@@ -25,7 +25,7 @@ export async function getEnrichedUserProfile(fid: number, fullCount = false): Pr
     // Get auth addresses using primary ETH address
     const authAddresses = await http.getAuthAddresses(fid, primaryEthAddress);
 
-    return buildUserProfile(fid, userDataMessages, verificationMessages, followCounts, storageLimits, custodyAddress, authAddresses);
+    return await buildUserProfile(fid, userDataMessages, verificationMessages, followCounts, storageLimits, custodyAddress, authAddresses);
   } catch (error) {
     console.error(`Failed to build user profile for FID ${fid}:`, error);
     // Return minimal profile on error
