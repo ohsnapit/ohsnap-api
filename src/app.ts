@@ -224,10 +224,9 @@ const app = new Elysia()
     }
   });
 
-// Local dev only
-if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
-  app.listen(API_PORT);
-  console.log(`🦊 Elysia is running at ${app.server?.hostname}:${app.server?.port}`);
-}
+// Start server
+const port = process.env.PORT || API_PORT;
+app.listen(port);
+console.log(`🦊 Elysia is running at ${app.server?.hostname}:${app.server?.port}`);
 
 export default app;
