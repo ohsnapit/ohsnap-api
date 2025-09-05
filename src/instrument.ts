@@ -1,4 +1,7 @@
-import * as Sentry from "@sentry/bun";
+// Conditionally import the right Sentry SDK based on runtime
+const Sentry = typeof Bun !== 'undefined' 
+  ? await import("@sentry/bun")
+  : await import("@sentry/node");
 
 // Initialize Sentry as early as possible
 Sentry.init({
@@ -13,9 +16,14 @@ Sentry.init({
   
   // Enable console logging integration
   integrations: [
-    Sentry.consoleLoggingIntegration({ 
-      levels: ["debug", "info", "warn", "error"] 
-    }),
+    // Use the appropriate console integration based on runtime
+    typeof Bun !== 'undefined' 
+    ? Sentry.consoleLoggingIntegration({ 
+        levels: ["debug", "info", "warn", "error"] 
+      })
+    : Sentry.consoleIntegration({ 
+        levels: ["debug", "info", "warn", "error"] 
+      }),
     // Add HTTP integration for better request tracing
     Sentry.httpIntegration({
       breadcrumbs: true,
