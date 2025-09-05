@@ -1,7 +1,5 @@
-// Conditionally import the right Sentry SDK based on runtime
-const Sentry = typeof Bun !== 'undefined' 
-  ? await import("@sentry/bun")
-  : await import("@sentry/node");
+// Import Bun's Sentry SDK
+const Sentry = await import("@sentry/bun");
 
 // Initialize Sentry as early as possible
 Sentry.init({
@@ -16,14 +14,10 @@ Sentry.init({
   
   // Enable console logging integration
   integrations: [
-    // Use the appropriate console integration based on runtime
-    typeof Bun !== 'undefined' 
-    ? Sentry.consoleLoggingIntegration({ 
-        levels: ["debug", "info", "warn", "error"] 
-      })
-    : Sentry.consoleIntegration({ 
-        levels: ["debug", "info", "warn", "error"] 
-      }),
+    // Use Bun's console logging integration
+    Sentry.consoleLoggingIntegration({ 
+      levels: ["debug", "info", "warn", "error"] 
+    }),
     // Add HTTP integration for better request tracing
     Sentry.httpIntegration({
       breadcrumbs: true,
@@ -37,7 +31,7 @@ Sentry.init({
   tracePropagationTargets: [
     "localhost",
     /^https:\/\/.*\.sentry\.io/,
-    /^https:\/\/.*\.vercel\.app/,
+    "https://ohsnap-api-production.up.railway.app",
   ],
 
   // Filter out noisy logs in production
