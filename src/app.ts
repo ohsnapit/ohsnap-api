@@ -9,7 +9,7 @@ import { withSpan, addBreadcrumb } from './utils/tracing.js';
 
 // Schemas
 import { castQuerySchema, castResponseSchema, castExamples } from './schemas/cast.js';
-import { userQuerySchema, userResponseSchema, userExamples, userCastsQuerySchema, userCastsResponseSchema, userCastsExamples } from './schemas/user.js';
+import { usernameQuerySchema, userQuerySchema, userResponseSchema, userExamples, userCastsQuerySchema, userCastsResponseSchema, userCastsExamples } from './schemas/user.js';
 import { healthResponseSchema } from './schemas/health.js';
 
 const app = new Elysia()
@@ -214,6 +214,69 @@ const app = new Elysia()
       examples: userCastsExamples
     }
   })
+  // User by username route
+.get('/v1/user/by-username', async ({ query }) => {
+  return withSpan(
+    'api.user.byUsername',
+    'Get user profile by username',
+    async () => {
+      const timer = startTimer('api_user_by_username', { endpoint: '/v1/user/by-username' });
+      logServiceMethod('api', 'getUserByUsername', { query });
+      addBreadcrumb('API request: GET /v1/user/by-username', 'api', 'info', { query });
+
+      try {
+        const { username, fullCount } = query;
+        if (!username) {
+          return { error: 'username parameter is required' };
+        }
+
+        const { getFidByUsername } = await import('./services/usernameCache.ts');
+        const { getEnrichedUserProfile } = await import('./services/cast.ts');
+
+        // Step 1: Only check cache
+        const fid = await getFidByUsername(username);
+        if (!fid) {
+          return { error: `FID not found in cache for username: ${username}` };
+        }
+
+        // Step 2: Fetch enriched profile
+        const useFullCount = fullCount === 'true' || fullCount === '1';
+        const user = await getEnrichedUserProfile(fid, useFullCount);
+
+        const result = { users: [user], next: { cursor: null } };
+        timer.end({ success: true, fid, username });
+        return result;
+      } catch (error: any) {
+        logError(error, 'api_getUserByUsername', { username: query.username, fullCount: query.fullCount });
+        timer.end({ error: error.message });
+        return { error: 'Internal server error', details: error.message };
+      }
+    },
+    { endpoint: '/v1/user/by-username', query }
+  );
+}, {
+  query: usernameQuerySchema,
+  response: userResponseSchema,
+  detail: {
+    tags: ['User'],
+    summary: 'Get user profile by X username',
+    description: `Fetches a user's profile by resolving their Xusername to fid (via cache only).
+
+**Usage:**
+- /v1/user/by-username?username=jack
+- /v1/user/by-username?username=jack&fullCount=true`,
+    examples: {
+      jack: {
+        username: "jack",
+        response: {
+          users: [{ fid: 2, username: "jack", display_name: "Jack" }],
+          next: { cursor: null }
+        }
+      }
+    }
+  }
+})
+
   // Health route
   .get('/health', () => ({ status: 'ok', timestamp: new Date().toISOString() }), {
     response: healthResponseSchema,
