@@ -19,7 +19,7 @@ export const openApiConfig = {
         description: 'Development server'
       }] : []),
       {
-        url: 'https://ohsnap-api.vercel.app',
+        url: 'https://ohsnap-api-production.up.railway.app',
         description: 'Production server'
       }
     ],
