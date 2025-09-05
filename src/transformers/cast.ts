@@ -1,6 +1,7 @@
 import type { CastResponse, UserProfile, CastMetrics } from '../types/api.js';
 import type { HttpCastMessage } from '../types/http.js';
 import { farcasterTimestampToISO } from '../utils/converters.js';
+import { startTimer, logTransformation, logError } from '../utils/logger.js';
 
 /**
  * Build cast response from HTTP data and metrics
@@ -14,7 +15,20 @@ export function buildCastResponse(
   metrics: CastMetrics,
   appData?: { object: string; fid: number; username?: string; display_name?: string; pfp_url?: string; custody_address?: string } | null
 ): CastResponse {
-  const castData = castMessage.data.castAddBody;
+  const timer = startTimer('build_cast_response', {
+    hash: hashString,
+    authorFid: authorProfile.fid,
+    mentionedCount: mentionedProfiles.length,
+    rangesCount: mentionedProfilesRanges.length,
+    hasApp: !!appData,
+    likesCount: metrics.reactions.likes,
+    recastsCount: metrics.reactions.recasts,
+    repliesCount: metrics.repliesCount
+  });
+  logTransformation('buildCastResponse', 1);
+  
+  try {
+    const castData = castMessage.data.castAddBody;
   
   // Parse parent information
   let parentHash = null;
@@ -71,37 +85,51 @@ export function buildCastResponse(
     channel = extractChannelFromUrl(parentUrl);
   }
 
-  return {
-    cast: {
-      object: 'cast',
-      hash: hashString,
-      author: authorProfile,
-      ...(appData && { app: appData }),
-      thread_hash: hashString,
-      parent_hash: parentHash,
-      parent_url: parentUrl,
-      root_parent_url: rootParentUrl,
-      parent_author: { fid: null },
-      text: processCastText(castData.text || '', castData, mentionedProfiles),
-      timestamp: farcasterTimestampToISO(castMessage.data.timestamp),
-      embeds: embeds,
-      channel: channel ?? null,
-      reactions: {
-        likes_count: metrics.reactions.likes,
-        recasts_count: metrics.reactions.recasts,
-        likes: [],
-        recasts: []
-      },
-      replies: { count: metrics.repliesCount },
-      mentioned_profiles: mentionedProfiles,
-      mentioned_profiles_ranges: mentionedProfilesRanges,
-      mentioned_channels: [],
-      mentioned_channels_ranges: [],
-      author_channel_context: channel ? {
-        following: true
-      } : undefined
-    }
-  };
+    const result = {
+      cast: {
+        object: 'cast',
+        hash: hashString,
+        author: authorProfile,
+        ...(appData && { app: appData }),
+        thread_hash: hashString,
+        parent_hash: parentHash,
+        parent_url: parentUrl,
+        root_parent_url: rootParentUrl,
+        parent_author: { fid: null },
+        text: processCastText(castData.text || '', castData, mentionedProfiles),
+        timestamp: farcasterTimestampToISO(castMessage.data.timestamp),
+        embeds: embeds,
+        channel: channel ?? null,
+        reactions: {
+          likes_count: metrics.reactions.likes,
+          recasts_count: metrics.reactions.recasts,
+          likes: [],
+          recasts: []
+        },
+        replies: { count: metrics.repliesCount },
+        mentioned_profiles: mentionedProfiles,
+        mentioned_profiles_ranges: mentionedProfilesRanges,
+        mentioned_channels: [],
+        mentioned_channels_ranges: [],
+        author_channel_context: channel ? {
+          following: true
+        } : undefined
+      }
+    };
+    
+    timer.end({
+      success: true,
+      hasParent: !!parentHash || !!parentUrl,
+      embedsCount: embeds.length,
+      hasChannel: !!channel,
+      textLength: (castData.text || '').length
+    });
+    return result;
+  } catch (error: any) {
+    logError(error, 'buildCastResponse', { hash: hashString, authorFid: authorProfile.fid });
+    timer.end({ error: error.message });
+    throw error;
+  }
 }
 
 /**
@@ -112,9 +140,19 @@ export function processCastText(
   castData: any,
   mentionedProfiles: UserProfile[]
 ): string {
-  if (!castData.mentions || !castData.mentionsPositions || !mentionedProfiles.length) {
-    return originalText;
-  }
+  const timer = startTimer('process_cast_text', {
+    textLength: originalText.length,
+    mentionsCount: castData.mentions?.length || 0,
+    mentionPositionsCount: castData.mentionsPositions?.length || 0,
+    profilesCount: mentionedProfiles.length
+  });
+  logTransformation('processCastText', mentionedProfiles.length);
+  
+  try {
+    if (!castData.mentions || !castData.mentionsPositions || !mentionedProfiles.length) {
+      timer.end({ processed: false, reason: 'no_mentions_or_profiles' });
+      return originalText;
+    }
 
   let processedText = originalText;
   const mentions = [];
@@ -141,13 +179,22 @@ export function processCastText(
     processedText = before + mention.username + after;
   }
 
-  return processedText;
+    timer.end({ processed: true, mentionsReplaced: mentions.length, finalTextLength: processedText.length });
+    return processedText;
+  } catch (error: any) {
+    logError(error, 'processCastText', { textLength: originalText.length, mentionsCount: castData.mentions?.length });
+    timer.end({ error: error.message });
+    return originalText; // Return original text on error
+  }
 }
 
 /**
  * Extract channel information from parentUrl dynamically
  */
 function extractChannelFromUrl(parentUrl: string): { object: string; id: string; name: string; image_url: string } | null {
+  const timer = startTimer('extract_channel_from_url', { parentUrl });
+  logTransformation('extractChannelFromUrl', 1);
+  
   try {
     const url = new URL(parentUrl);
     
@@ -155,12 +202,14 @@ function extractChannelFromUrl(parentUrl: string): { object: string; id: string;
     if (url.hostname === 'warpcast.com' && url.pathname.startsWith('/~/channel/')) {
       const channelId = url.pathname.split('/~/channel/')[1];
       if (channelId && channelId.trim()) {
-        return {
+        const result = {
           object: 'channel_dehydrated',
           id: channelId,
           name: channelId.charAt(0).toUpperCase() + channelId.slice(1).replace(/-/g, ' '),
           image_url: `https://warpcast.com/~/channel-images/${channelId}.png`
         };
+        timer.end({ success: true, channelType: 'warpcast', channelId });
+        return result;
       }
     }
     
@@ -169,16 +218,21 @@ function extractChannelFromUrl(parentUrl: string): { object: string; id: string;
     const channelId = domain.split('.')[0];
     
     if (channelId && channelId.trim()) {
-      return {
+      const result = {
         object: 'channel_dehydrated',
         id: channelId,
         name: channelId.charAt(0).toUpperCase() + channelId.slice(1),
         image_url: `https://warpcast.com/~/channel-images/${channelId}.png_placeholder`
       };
+      timer.end({ success: true, channelType: 'domain', channelId, domain });
+      return result;
     }
     
+    timer.end({ success: false, reason: 'no_valid_channel_id' });
     return null;
-  } catch (error) {
+  } catch (error: any) {
+    logError(error, 'extractChannelFromUrl', { parentUrl });
+    timer.end({ error: error.message });
     return null;
   }
 }
@@ -190,7 +244,15 @@ export function calculateMentionRanges(
   castData: any,
   mentionedProfiles: UserProfile[]
 ): Array<{ start: number; end: number }> {
-  const ranges: Array<{ start: number; end: number }> = [];
+  const timer = startTimer('calculate_mention_ranges', {
+    mentionsCount: castData.mentions?.length || 0,
+    mentionPositionsCount: castData.mentionsPositions?.length || 0,
+    profilesCount: mentionedProfiles.length
+  });
+  logTransformation('calculateMentionRanges', mentionedProfiles.length);
+  
+  try {
+    const ranges: Array<{ start: number; end: number }> = [];
   
   if (castData.mentions && castData.mentionsPositions) {
     for (let i = 0; i < Math.min(castData.mentions.length, mentionedProfiles.length); i++) {
@@ -205,5 +267,11 @@ export function calculateMentionRanges(
     }
   }
   
-  return ranges;
+    timer.end({ success: true, rangesCalculated: ranges.length });
+    return ranges;
+  } catch (error: any) {
+    logError(error, 'calculateMentionRanges', { mentionsCount: castData.mentions?.length, profilesCount: mentionedProfiles.length });
+    timer.end({ error: error.message });
+    return [];
+  }
 }

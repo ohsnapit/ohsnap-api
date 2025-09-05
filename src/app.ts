@@ -1,8 +1,11 @@
+import './instrument.js';
 import { Elysia } from 'elysia';
 import { openapi } from '@elysiajs/openapi';
 import { getCastByFidAndHash, getEnrichedUserProfile, getCastsByFid } from './services/cast.js';
 import { API_PORT } from './utils/constants.js';
+import { startTimer, logServiceMethod, logError } from './utils/logger.js';
 import { openApiConfig } from './config/openapi.js';
+import { withSpan, addBreadcrumb } from './utils/tracing.js';
 
 // Schemas
 import { castQuerySchema, castResponseSchema, castExamples } from './schemas/cast.js';
@@ -13,30 +16,44 @@ const app = new Elysia()
   .use(openapi(openApiConfig))
   // Cast route
   .get('/v1/cast', async ({ query }) => {
-    try {
-      const { fid, hash, fullCount } = query;
+    return withSpan(
+      'api.cast.get',
+      'Get cast by FID and hash',
+      async () => {
+        const timer = startTimer('api_cast', { endpoint: '/v1/cast' });
+        logServiceMethod('api', 'getCast', { query });
+        addBreadcrumb('API request: GET /v1/cast', 'api', 'info', { query });
+        
+        try {
+          const { fid, hash, fullCount } = query;
 
-      if (!fid || !hash) {
-        return { error: 'fid and hash parameters are required' };
-      }
+          if (!fid || !hash) {
+            return { error: 'fid and hash parameters are required' };
+          }
 
-      const fidNumber = parseInt(fid as string);
-      const hashString = hash as string;
-      const useFullCount = fullCount === 'true' || fullCount === '1';
+          const fidNumber = parseInt(fid as string);
+          const hashString = hash as string;
+          const useFullCount = fullCount === 'true' || fullCount === '1';
 
-      if (isNaN(fidNumber)) {
-        return { error: 'fid must be a valid number' };
-      }
+          if (isNaN(fidNumber)) {
+            return { error: 'fid must be a valid number' };
+          }
 
-      if (!hashString.startsWith('0x') || hashString.length !== 42) {
-        return { error: 'hash must be a valid hex string starting with 0x' };
-      }
+          if (!hashString.startsWith('0x') || hashString.length !== 42) {
+            return { error: 'hash must be a valid hex string starting with 0x' };
+          }
 
-      return await getCastByFidAndHash(fidNumber, hashString, useFullCount);
-    } catch (error: any) {
-      console.error('Error fetching cast:', error);
-      return { error: 'Internal server error', details: error.message };
-    }
+          const result = await getCastByFidAndHash(fidNumber, hashString, useFullCount);
+          timer.end({ success: true, fid: fidNumber });
+          return result;
+        } catch (error: any) {
+          logError(error, 'api_getCast', { fid: query.fid, hash: query.hash, fullCount: query.fullCount });
+          timer.end({ error: error.message });
+          return { error: 'Internal server error', details: error.message };
+        }
+      },
+      { endpoint: '/v1/cast', query }
+    );
   }, {
     query: castQuerySchema,
     response: castResponseSchema,
@@ -57,34 +74,48 @@ const app = new Elysia()
   })
   // User profile route
   .get('/v1/user', async ({ query }) => {
-    try {
-      const { fid, fullCount } = query;
+    return withSpan(
+      'api.user.get',
+      'Get user profiles by FID(s)',
+      async () => {
+        const timer = startTimer('api_user', { endpoint: '/v1/user' });
+        logServiceMethod('api', 'getUser', { query });
+        addBreadcrumb('API request: GET /v1/user', 'api', 'info', { query });
+        
+        try {
+          const { fid, fullCount } = query;
 
-      if (!fid) {
-        return { error: 'fid parameter is required' };
-      }
+          if (!fid) {
+            return { error: 'fid parameter is required' };
+          }
 
-      const fidStrings = (fid as string).split(',').map(f => f.trim());
-      const useFullCount = fullCount === 'true' || fullCount === '1';
+          const fidStrings = (fid as string).split(',').map(f => f.trim());
+          const useFullCount = fullCount === 'true' || fullCount === '1';
 
-      const fidNumbers: number[] = [];
-      for (const fidStr of fidStrings) {
-        const fidNumber = parseInt(fidStr);
-        if (isNaN(fidNumber)) {
-          return { error: `Invalid fid: ${fidStr}. All FIDs must be valid numbers.` };
+          const fidNumbers: number[] = [];
+          for (const fidStr of fidStrings) {
+            const fidNumber = parseInt(fidStr);
+            if (isNaN(fidNumber)) {
+              return { error: `Invalid fid: ${fidStr}. All FIDs must be valid numbers.` };
+            }
+            fidNumbers.push(fidNumber);
+          }
+
+          const users = await Promise.all(
+            fidNumbers.map(fidNumber => getEnrichedUserProfile(fidNumber, useFullCount))
+          );
+
+          const result = { users, next: { cursor: null } };
+          timer.end({ success: true, userCount: users.length });
+          return result;
+        } catch (error: any) {
+          logError(error, 'api_getUser', { fid: query.fid, fullCount: query.fullCount });
+          timer.end({ error: error.message });
+          return { error: 'Internal server error', details: error.message };
         }
-        fidNumbers.push(fidNumber);
-      }
-
-      const users = await Promise.all(
-        fidNumbers.map(fidNumber => getEnrichedUserProfile(fidNumber, useFullCount))
-      );
-
-      return { users, next: { cursor: null } };
-    } catch (error: any) {
-      console.error('Error fetching users:', error);
-      return { error: 'Internal server error', details: error.message };
-    }
+      },
+      { endpoint: '/v1/user', query }
+    );
   }, {
     query: userQuerySchema,
     response: userResponseSchema,
@@ -109,37 +140,58 @@ const app = new Elysia()
   })
   // User casts route
   .get('/v1/user/casts', async ({ query }) => {
-    try {
-      const { fid, cursor, limit, fullCount, include_replies } = query;
+    return withSpan(
+      'api.user.casts.get',
+      'Get user casts with pagination',
+      async () => {
+        const timer = startTimer('api_user_casts', { endpoint: '/v1/user/casts' });
+        logServiceMethod('api', 'getUserCasts', { query });
+        addBreadcrumb('API request: GET /v1/user/casts', 'api', 'info', { query });
+        
+        try {
+          const { fid, cursor, limit, fullCount, include_replies } = query;
 
-      if (!fid) {
-        return { error: 'fid parameter is required' };
-      }
+          if (!fid) {
+            return { error: 'fid parameter is required' };
+          }
 
-      const fidNumber = parseInt(fid as string);
-      const useFullCount = fullCount === 'true' || fullCount === '1';
-      const pageSize = limit ? parseInt(limit as string) : 25;
-      const includeReplies = include_replies !== 'false';
+          const fidNumber = parseInt(fid as string);
+          const useFullCount = fullCount === 'true' || fullCount === '1';
+          const pageSize = limit ? parseInt(limit as string) : 25;
+          const includeReplies = include_replies !== 'false';
 
-      if (isNaN(fidNumber)) {
-        return { error: 'fid must be a valid number' };
-      }
+          if (isNaN(fidNumber)) {
+            return { error: 'fid must be a valid number' };
+          }
 
-      if (pageSize < 1 || pageSize > 150) {
-        return { error: 'limit must be between 1 and 150' };
-      }
+          if (pageSize < 1 || pageSize > 150) {
+            return { error: 'limit must be between 1 and 150' };
+          }
 
-      return await getCastsByFid(
-        fidNumber,
-        cursor as string,
-        pageSize,
-        useFullCount,
-        includeReplies
-      );
-    } catch (error: any) {
-      console.error('Error fetching user casts:', error);
-      return { error: 'Internal server error', details: error.message };
-    }
+          const result = await getCastsByFid(
+            fidNumber,
+            cursor as string,
+            pageSize,
+            useFullCount,
+            includeReplies
+          );
+          
+          timer.end({ success: true, fid: fidNumber, castsCount: result.casts.length });
+          return result;
+        } catch (error: any) {
+          logError(error, 'api_getUserCasts', { 
+            fid: query.fid, 
+            cursor: query.cursor, 
+            limit: query.limit, 
+            fullCount: query.fullCount, 
+            include_replies: query.include_replies 
+          });
+          timer.end({ error: error.message });
+          return { error: 'Internal server error', details: error.message };
+        }
+      },
+      { endpoint: '/v1/user/casts', query }
+    );
   }, {
     query: userCastsQuerySchema,
     response: userCastsResponseSchema,

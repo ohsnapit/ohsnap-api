@@ -93,11 +93,15 @@ export function parseGeoLocation(value: string): { latitude: number; longitude: 
  */
 export async function reverseGeocode(latitude: number, longitude: number): Promise<{ city: string; state: string; state_code: string; country: string; country_code: string } | null> {
   const { LOCATION_IQ_API_KEY } = await import('./constants.js');
+  const { startTimer, logExternalApiCall, logError } = await import('./logger.js');
   
   if (!LOCATION_IQ_API_KEY) {
     console.warn('LOCATION_IQ_API_KEY not configured');
     return null;
   }
+
+  const timer = startTimer('reverse_geocode', { latitude, longitude });
+  logExternalApiCall('LocationIQ', 'reverse geocoding', { latitude, longitude });
 
   try {
     const url = `https://us1.locationiq.com/v1/reverse?key=${LOCATION_IQ_API_KEY}&lat=${latitude}&lon=${longitude}&format=json&addressdetails=1`;
@@ -113,7 +117,7 @@ export async function reverseGeocode(latitude: number, longitude: number): Promi
     
     const address = data.address || {};
     
-    return {
+    const result = {
       city: address.city || address.town || address.village || address.county || 'Unknown',
       state: address.state || address.region || 'Unknown',
       state_code: address.state || address.region || 'unknown',
@@ -121,8 +125,12 @@ export async function reverseGeocode(latitude: number, longitude: number): Promi
       country_code: address.country_code || 'unknown',
     };
     
-  } catch (error) {
-    console.error('Reverse geocoding error:', error);
+    timer.end({ success: true, city: result.city, country: result.country });
+    return result;
+    
+  } catch (error: any) {
+    logError(error, 'reverseGeocode', { latitude, longitude });
+    timer.end({ error: error.message });
     return null;
   }
 }

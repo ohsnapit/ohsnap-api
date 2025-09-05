@@ -2,11 +2,14 @@ import type { UserProfile, FollowCounts } from '../types/api.js';
 import type { HttpUserDataMessage, HttpVerificationMessage, HttpStorageLimits } from '../types/http.js';
 import { USER_DATA_TYPES, DEFAULT_LOCATION } from '../utils/constants.js';
 import { parseGeoLocation, reverseGeocode } from '../utils/converters.js';
+import { startTimer, logServiceMethod, logTransformation, logError, logExternalApiCall } from '../utils/logger.js';
 
 /**
  * Parse user data messages into profile data
  */
 export async function parseUserData(messages: HttpUserDataMessage[]): Promise<Partial<UserProfile>> {
+  const timer = startTimer('parse_user_data', { messageCount: messages.length });
+  logTransformation('parseUserData', messages.length);
   const profile: Partial<UserProfile> = {
     profile: {},
     verified_addresses: {
@@ -43,6 +46,7 @@ export async function parseUserData(messages: HttpUserDataMessage[]): Promise<Pa
         const coords = parseGeoLocation(value);
         if (coords) {
           // We have coordinates, use reverse geocoding to get location details
+          logExternalApiCall('LocationIQ', 'reverse geocoding', { latitude: coords.latitude, longitude: coords.longitude });
           const address = await reverseGeocode(coords.latitude, coords.longitude);
           if (!profile.profile) profile.profile = {};
           profile.profile.location = {
@@ -98,6 +102,7 @@ export async function parseUserData(messages: HttpUserDataMessage[]): Promise<Pa
     }
   }
 
+  timer.end();
   return profile;
 }
 
@@ -109,6 +114,9 @@ export function parseVerifications(messages: HttpVerificationMessage[]): {
   solAddresses: string[];
   allVerifications: string[];
 } {
+  const timer = startTimer('parse_verifications', { messageCount: messages.length });
+  logTransformation('parseVerifications', messages.length);
+  
   const ethAddresses: string[] = [];
   const solAddresses: string[] = [];
   const allVerifications: string[] = [];
@@ -122,8 +130,8 @@ export function parseVerifications(messages: HttpVerificationMessage[]): {
           const solAddress = verificationData.address;
           solAddresses.push(solAddress);
           allVerifications.push(solAddress);
-        } catch (error) {
-          console.error('Failed to process Solana address:', error);
+        } catch (error: any) {
+          logError(error, 'parseVerifications:solana', { address: verificationData.address });
         }
       } else {
         // ETH address - HTTP format is already hex
@@ -131,13 +139,14 @@ export function parseVerifications(messages: HttpVerificationMessage[]): {
           const ethAddress = verificationData.address.toLowerCase();
           ethAddresses.push(ethAddress);
           allVerifications.push(ethAddress);
-        } catch (error) {
-          console.error('Failed to process Ethereum address:', error);
+        } catch (error: any) {
+          logError(error, 'parseVerifications:ethereum', { address: verificationData.address });
         }
       }
     }
   }
   
+  timer.end({ ethCount: ethAddresses.length, solCount: solAddresses.length, totalVerifications: allVerifications.length });
   return { ethAddresses, solAddresses, allVerifications };
 }
 
@@ -149,7 +158,11 @@ export function checkProSubscription(storageLimits: HttpStorageLimits | null): {
   subscribedAt?: string;
   expiresAt?: string;
 } {
+  const timer = startTimer('check_pro_subscription', { hasStorageLimits: !!storageLimits });
+  logTransformation('checkProSubscription', storageLimits?.tier_subscriptions?.length || 0);
+  
   if (!storageLimits?.tier_subscriptions) {
+    timer.end({ hasPro: false, reason: 'no_tier_subscriptions' });
     return { hasPro: false };
   }
 
@@ -162,13 +175,16 @@ export function checkProSubscription(storageLimits: HttpStorageLimits | null): {
     // Estimate subscription start as 1 year before expiry for annual subscriptions
     const subscribedAt = new Date(parseInt(String(proSubscription.expires_at)) * 1000 - (365 * 24 * 60 * 60 * 1000)).toISOString();
     
-    return {
+    const result = {
       hasPro: true,
       subscribedAt,
       expiresAt
     };
+    timer.end({ hasPro: true, expiresAt, subscribedAt });
+    return result;
   }
 
+  timer.end({ hasPro: false, reason: 'no_active_subscription' });
   return { hasPro: false };
 }
 
@@ -184,9 +200,22 @@ export async function buildUserProfile(
   custodyAddress?: string | null,
   authAddresses?: Array<{address: string, app?: any}>
 ): Promise<UserProfile> {
-  const parsedUserData = await parseUserData(userDataMessages);
-  const verificationData = parseVerifications(verificationMessages);
-  const { hasPro, subscribedAt, expiresAt } = checkProSubscription(storageLimits);
+  const timer = startTimer('build_user_profile', { 
+    fid, 
+    userDataCount: userDataMessages.length, 
+    verificationCount: verificationMessages.length,
+    followerCount: followCounts.followers,
+    followingCount: followCounts.following,
+    hasStorageLimits: !!storageLimits,
+    hasCustodyAddress: !!custodyAddress,
+    authAddressCount: authAddresses?.length || 0
+  });
+  logTransformation('buildUserProfile', userDataMessages.length + verificationMessages.length);
+  
+  try {
+    const parsedUserData = await parseUserData(userDataMessages);
+    const verificationData = parseVerifications(verificationMessages);
+    const { hasPro, subscribedAt, expiresAt } = checkProSubscription(storageLimits);
 
   // Merge verification addresses with user data addresses
   const mergedVerifiedAddresses = {
@@ -216,35 +245,49 @@ export async function buildUserProfile(
   const baseScore = Math.min(0.99, Math.max(0.1, followCounts.followers / 100000));
   const adjustedScore = Math.min(0.99, baseScore * (1 + (verificationData.allVerifications.length * 0.1)));
 
-  const profile: UserProfile = {
-    object: 'user',
-    fid: fid,
-    username: parsedUserData.username,
-    display_name: parsedUserData.display_name,
-    pfp_url: parsedUserData.pfp_url,
-    custody_address: custodyAddress || undefined,
-    ...(hasPro && subscribedAt && expiresAt && {
-      pro: {
-        status: 'subscribed',
-        subscribed_at: subscribedAt, 
-        expires_at: expiresAt
-      }
-    }),
-    profile: parsedUserData.profile,
-    follower_count: followCounts.followers,
-    following_count: followCounts.following,
-    verifications: verificationData.ethAddresses, // Match Neynar - only ETH addresses
-    verified_addresses: {
-      eth_addresses: mergedVerifiedAddresses.eth_addresses,
-      sol_addresses: mergedVerifiedAddresses.sol_addresses.slice(0, 1), // Only first SOL address like Neynar
-      primary: mergedVerifiedAddresses.primary
-    },
-    auth_addresses: authAddresses || [],
-    verified_accounts: parsedUserData.verified_accounts,
-    power_badge: powerBadge,
-    score: adjustedScore,
-    url: parsedUserData.url
-  };
+    const profile: UserProfile = {
+      object: 'user',
+      fid: fid,
+      username: parsedUserData.username,
+      display_name: parsedUserData.display_name,
+      pfp_url: parsedUserData.pfp_url,
+      custody_address: custodyAddress || undefined,
+      ...(hasPro && subscribedAt && expiresAt && {
+        pro: {
+          status: 'subscribed',
+          subscribed_at: subscribedAt, 
+          expires_at: expiresAt
+        }
+      }),
+      profile: parsedUserData.profile,
+      follower_count: followCounts.followers,
+      following_count: followCounts.following,
+      verifications: verificationData.ethAddresses, // Match Neynar - only ETH addresses
+      verified_addresses: {
+        eth_addresses: mergedVerifiedAddresses.eth_addresses,
+        sol_addresses: mergedVerifiedAddresses.sol_addresses.slice(0, 1), // Only first SOL address like Neynar
+        primary: mergedVerifiedAddresses.primary
+      },
+      auth_addresses: authAddresses || [],
+      verified_accounts: parsedUserData.verified_accounts,
+      power_badge: powerBadge,
+      score: adjustedScore,
+      url: parsedUserData.url
+    };
 
-  return profile;
+    timer.end({ 
+      success: true,
+      hasPro,
+      powerBadge,
+      score: adjustedScore,
+      ethAddressCount: mergedVerifiedAddresses.eth_addresses.length,
+      solAddressCount: mergedVerifiedAddresses.sol_addresses.length,
+      verifiedAccountsCount: parsedUserData.verified_accounts?.length || 0
+    });
+    return profile;
+  } catch (error: any) {
+    logError(error, 'buildUserProfile', { fid, userDataCount: userDataMessages.length, verificationCount: verificationMessages.length });
+    timer.end({ error: error.message });
+    throw error;
+  }
 }
