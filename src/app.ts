@@ -17,10 +17,9 @@ const app = new Elysia()
   // Cast route
   .get('/v1/cast', async ({ query }) => {
     return withSpan(
-      'api.cast.get',
-      'Get cast by FID and hash',
+      'GET /v1/cast',
+      'http.server',
       async () => {
-        const timer = startTimer('api_cast', { endpoint: '/v1/cast' });
         logServiceMethod('api', 'getCast', { query });
         addBreadcrumb('API request: GET /v1/cast', 'api', 'info', { query });
         
@@ -44,11 +43,9 @@ const app = new Elysia()
           }
 
           const result = await getCastByFidAndHash(fidNumber, hashString, useFullCount);
-          timer.end({ success: true, fid: fidNumber });
           return result;
         } catch (error: any) {
           logError(error, 'api_getCast', { fid: query.fid, hash: query.hash, fullCount: query.fullCount });
-          timer.end({ error: error.message });
           return { error: 'Internal server error', details: error.message };
         }
       },
@@ -75,10 +72,9 @@ const app = new Elysia()
   // User profile route
   .get('/v1/user', async ({ query }) => {
     return withSpan(
-      'api.user.get',
-      'Get user profiles by FID(s)',
+      'GET /v1/user',
+      'http.server',
       async () => {
-        const timer = startTimer('api_user', { endpoint: '/v1/user' });
         logServiceMethod('api', 'getUser', { query });
         addBreadcrumb('API request: GET /v1/user', 'api', 'info', { query });
         
@@ -106,11 +102,9 @@ const app = new Elysia()
           );
 
           const result = { users, next: { cursor: null } };
-          timer.end({ success: true, userCount: users.length });
           return result;
         } catch (error: any) {
           logError(error, 'api_getUser', { fid: query.fid, fullCount: query.fullCount });
-          timer.end({ error: error.message });
           return { error: 'Internal server error', details: error.message };
         }
       },
@@ -141,10 +135,9 @@ const app = new Elysia()
   // User casts route
   .get('/v1/user/casts', async ({ query }) => {
     return withSpan(
-      'api.user.casts.get',
-      'Get user casts with pagination',
+      'GET /v1/user/casts',
+      'http.server',
       async () => {
-        const timer = startTimer('api_user_casts', { endpoint: '/v1/user/casts' });
         logServiceMethod('api', 'getUserCasts', { query });
         addBreadcrumb('API request: GET /v1/user/casts', 'api', 'info', { query });
         
@@ -176,7 +169,6 @@ const app = new Elysia()
             includeReplies
           );
           
-          timer.end({ success: true, fid: fidNumber, castsCount: result.casts.length });
           return result;
         } catch (error: any) {
           logError(error, 'api_getUserCasts', { 
@@ -186,7 +178,6 @@ const app = new Elysia()
             fullCount: query.fullCount, 
             include_replies: query.include_replies 
           });
-          timer.end({ error: error.message });
           return { error: 'Internal server error', details: error.message };
         }
       },
@@ -217,10 +208,9 @@ const app = new Elysia()
   // User by username route
 .get('/v1/user/by-username', async ({ query }) => {
   return withSpan(
-    'api.user.byUsername',
-    'Get user profile by username',
+    'GET /v1/user/by-username',
+    'http.server',
     async () => {
-      const timer = startTimer('api_user_by_username', { endpoint: '/v1/user/by-username' });
       logServiceMethod('api', 'getUserByUsername', { query });
       addBreadcrumb('API request: GET /v1/user/by-username', 'api', 'info', { query });
 
@@ -244,11 +234,9 @@ const app = new Elysia()
         const user = await getEnrichedUserProfile(fid, useFullCount);
 
         const result = { users: [user], next: { cursor: null } };
-        timer.end({ success: true, fid, username });
         return result;
       } catch (error: any) {
         logError(error, 'api_getUserByUsername', { username: query.username, fullCount: query.fullCount });
-        timer.end({ error: error.message });
         return { error: 'Internal server error', details: error.message };
       }
     },

@@ -21,17 +21,17 @@ export function createSpan(
 }
 
 /**
- * Execute a function within a Sentry span
+ * Execute a function within a Sentry span with proper operation categorization
  */
 export async function withSpan<T>(
+  name: string,
   operation: string,
-  description: string,
   fn: () => Promise<T>,
   data?: Record<string, any>
 ): Promise<T> {
   return Sentry.startSpan(
     {
-      name: operation,
+      name: name,
       op: operation,
       attributes: data,
     },
@@ -50,17 +50,17 @@ export async function withSpan<T>(
 }
 
 /**
- * Execute a synchronous function within a Sentry span
+ * Execute a synchronous function within a Sentry span with proper operation categorization
  */
 export function withSpanSync<T>(
+  name: string,
   operation: string,
-  description: string,
   fn: () => T,
   data?: Record<string, any>
 ): T {
   return Sentry.startSpan(
     {
-      name: operation,
+      name: name,
       op: operation,
       attributes: data,
     },

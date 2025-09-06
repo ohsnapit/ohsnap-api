@@ -302,18 +302,10 @@ export async function getCastsByFid(
       }
     };
     
-    timer.end({ 
-      success: true,
-      castsReturned: enrichedCasts.length,
-      totalProcessed: processedCount,
-      hasNextCursor: !!nextCursor,
-      originalMessagesCount: response.messages?.length || 0
-    });
     return result;
 
       } catch (error: any) {
         logError(error, 'getCastsByFid', { fid, pageToken: !!pageToken, pageSize, fullCount, includeReplies });
-        timer.end({ error: error.message });
         return {
           casts: [],
           next: { cursor: null }
