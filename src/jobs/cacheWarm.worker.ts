@@ -10,7 +10,9 @@ async function fetchAllUsers(): Promise<{ username: string; fid: number }[]> {
     const data = [
         { username: "abdfsdfd", fid: 1234 }, 
         { username: "whatever", fid: 29 },
-        { username: "vhawk", fid: 980 }
+        { username: "vhawk", fid: 980 },
+        { username: "foo", fid: 164 },
+        { username: "bar", fid: 165 }
     ];
   // shape to { username, fid }
   return data;

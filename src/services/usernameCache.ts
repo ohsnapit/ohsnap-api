@@ -4,7 +4,7 @@ const TTL_SECONDS = 60 * 60 * 24; // 24h
 
 export async function setUsernameFid(username: string, fid: number) {
   const key = `USERNAME:${username.toLowerCase()}`;
-  await redis.set(key, fid.toString(), "EX", TTL_SECONDS);
+  await redis.set(key, fid.toString(), { EX: TTL_SECONDS });
 }
 
 export async function getFidByUsername(username: string): Promise<number | null> {

@@ -8,14 +8,14 @@ export const cacheWarmQueue = new Queue("cache-warm", {
 // await cacheWarmQueue.add(
 //   "warmUsers",
 //   {}, // no usernames, worker handles API fetch
-//   { repeat: { cron: "0 */6 * * *" } } // every 6 hours
+//   { repeat: { pattern: "0 */6 * * *" } } // every 6 hours
 // );
 
 
 
 if (process.env.NODE_ENV === "production") {
     // scheduled
-    await cacheWarmQueue.add("warmUsers", {}, { repeat: { cron: "0 */6 * * *" } });
+    await cacheWarmQueue.add("warmUsers", {}, { repeat: { pattern: "0 */6 * * *" } });
   } else {
     // immediate run for testing
     console.log("not production")
