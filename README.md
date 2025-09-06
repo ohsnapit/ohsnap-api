@@ -150,3 +150,34 @@ To add new features:
 2. Add gRPC methods in `src/services/grpc.ts`
 3. Add transformers in `src/transformers/`
 4. Add endpoints in `src/app.ts`
+
+
+## Cache
+
+To get Redis running,
+```
+docker run --name redis -p 6379:6379 -d redis:7
+```
+
+To get BullBoard running,
+```
+bun run src/queues/cacheWarm.queue.ts
+```
+bun run src/utils/dashboard.ts
+```
+
+To get the cache warm worker running,
+```
+bun run src/jobs/cacheWarm.worker.ts
+```
+
+To get the queue running which then triggers a job,
+```
+bun run src/queues/cacheWarm.queue.ts
+```
+
+The Cache workflow is currently this
+1. There is a BullMQ queue-worker setup configured to populate redis. A Bull Dashboard is also available to monitor the jobs at http://IP-ADDR:4040/admin/queues.
+2. The queue can be triggered manually or scheduled to run every n hours
+3. The queue triggers a job which fetches the username:FID mapping and populates Redis
+4. The mapping is currently a manual list defined in src/jobs/cacheWarm.worker.ts. This method can be updated to capture the actual logic to get the username:FID mapping from the API endpoint.  
