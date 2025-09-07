@@ -16,65 +16,52 @@ import { getPaginatedCount } from '../utils/pagination.js';
 import { HTTP_BASE_URL } from '../utils/constants.js';
 import { startTimer, logHttpRequest, logHttpResponse, logError, logServiceMethod } from '../utils/logger.js';
 import { withSpan, addBreadcrumb } from '../utils/tracing.js';
+import { getCachedFollowerCount } from '../jobs/followersBackfill.worker.js';
 
 /**
  * Fast count helper - gets up to 1k results (first page only for speed)
  */
 async function getFastCount(endpoint: string, params: Record<string, string | number>): Promise<number> {
-  return withSpan(
-    'http.fast_count',
-    `Fast count for ${endpoint}`,
-    async () => {
-      const timer = startTimer('fast_count', { endpoint, params });
-      logServiceMethod('http', 'getFastCount', { endpoint, params });
-      addBreadcrumb(`Getting fast count for ${endpoint}`, 'http', 'info', { endpoint, params });
+  // Remove span to avoid nesting with httpRequest spans
+  logServiceMethod('http', 'getFastCount', { endpoint, params });
+  addBreadcrumb(`Getting fast count for ${endpoint}`, 'http', 'info', { endpoint, params });
       
-      let totalCount = 0;
-      let pageToken: string | undefined;
-      let hasMore = true;
-      const maxPages = 1; // 1 page * 500 per page = 500 max (much faster)
-      let pageCount = 0;
+  let totalCount = 0;
+  let pageToken: string | undefined;
+  let hasMore = true;
+  const maxPages = 1; // 1 page * 500 per page = 500 max (much faster)
+  let pageCount = 0;
 
-      while (hasMore && pageCount < maxPages) {
-        try {
-          const requestParams = {
-            ...params,
-            pageSize: 500,
-            ...(pageToken && { pageToken })
-          };
+  while (hasMore && pageCount < maxPages) {
+    try {
+      const requestParams = {
+        ...params,
+        pageSize: 500,
+        ...(pageToken && { pageToken })
+      };
 
-          const response = await httpRequest<HttpResponse<any>>(endpoint, requestParams);
-          
-          if (response.messages && response.messages.length > 0) {
-            totalCount += response.messages.length;
-          }
-
-          // Check if there's more data
-          pageToken = response.nextPageToken;
-          hasMore = !!pageToken;
-          pageCount++;
-
-          // If we got less than pageSize, we're at the end
-          if (!response.messages || response.messages.length < 1000) {
-            hasMore = false;
-          }
-        } catch (error: any) {
-          logError(error, 'getFastCount', { endpoint, params, pageCount, totalCount });
-          break;
-        }
+      const response = await httpRequest<HttpResponse<any>>(endpoint, requestParams);
+      
+      if (response.messages && response.messages.length > 0) {
+        totalCount += response.messages.length;
       }
 
-      timer.end({ 
-        totalCount, 
-        pagesProcessed: pageCount, 
-        hitMaxPages: pageCount >= maxPages,
-        endpoint 
-      });
-      
-      return totalCount;
-    },
-    { endpoint, params }
-  );
+      // Check if there's more data
+      pageToken = response.nextPageToken;
+      hasMore = !!pageToken;
+      pageCount++;
+
+      // If we got less than pageSize, we're at the end
+      if (!response.messages || response.messages.length < 1000) {
+        hasMore = false;
+      }
+    } catch (error: any) {
+      logError(error, 'getFastCount', { endpoint, params, pageCount, totalCount });
+      break;
+    }
+  }
+
+  return totalCount;
 }
 
 // const DEFAULT_TIMEOUT = 10000; // Unused
@@ -88,10 +75,9 @@ class HttpError extends Error {
 
 async function httpRequest<T>(endpoint: string, params: Record<string, string | number | boolean> = {}): Promise<T> {
   return withSpan(
+    `HTTP ${endpoint}`,
     'http.client',
-    `HTTP request to ${endpoint}`,
     async () => {
-      const timer = startTimer('http_request', { endpoint, params });
       const url = new URL(`/v1/${endpoint}`, HTTP_BASE_URL);
       
       // Add query parameters
@@ -112,8 +98,7 @@ async function httpRequest<T>(endpoint: string, params: Record<string, string | 
           },
         });
 
-        const duration = timer.end({ statusCode: response.status });
-        logHttpResponse('GET', url.toString(), response.status, duration, { endpoint });
+        logHttpResponse('GET', url.toString(), response.status, 0, { endpoint });
 
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({})) as any;
@@ -128,7 +113,6 @@ async function httpRequest<T>(endpoint: string, params: Record<string, string | 
 
         return await response.json() as T;
       } catch (error: any) {
-        timer.end({ error: error.message });
         if (error instanceof HttpError) {
           throw error;
         }
@@ -154,8 +138,8 @@ export async function getInfo(includeDbStats = false): Promise<HttpInfoResponse>
  */
 export async function getCast(fid: number, hash: string): Promise<HttpCastMessage> {
   return withSpan(
-    'http.cast.get',
-    `Get cast by FID ${fid} and hash ${hash}`,
+    `getCast(${fid}, ${hash.slice(0, 8)}...)`,
+    'function',
     async () => {
       logServiceMethod('http', 'getCast', { fid, hash });
       addBreadcrumb(`Getting cast for FID ${fid}`, 'http', 'info', { fid, hash });
@@ -175,8 +159,8 @@ export async function getCastsByFid(
   reverse: boolean = true
 ): Promise<HttpResponse<HttpCastMessage>> {
   return withSpan(
-    'http.casts.list',
-    `Get casts for FID ${fid} with pagination`,
+    `getCastsByFid(${fid})`,
+    'function',
     async () => {
       logServiceMethod('http', 'getCastsByFid', { fid, pageSize, reverse, hasPageToken: !!pageToken });
       addBreadcrumb(`Getting casts for FID ${fid}`, 'http', 'info', { fid, pageSize, reverse, hasPageToken: !!pageToken });
@@ -200,10 +184,9 @@ export async function getCastsByFid(
  */
 export async function getUserDataByFid(fid: number, userDataType?: string): Promise<HttpUserDataMessage[]> {
   return withSpan(
-    'http.user.data.get',
-    `Get user data for FID ${fid}`,
+    `getUserDataByFid(${fid})`,
+    'function',
     async () => {
-      const timer = startTimer('get_user_data_by_fid', { fid, userDataType });
       logServiceMethod('http', 'getUserDataByFid', { fid, userDataType });
       addBreadcrumb(`Getting user data for FID ${fid}`, 'http', 'info', { fid, userDataType });
       
@@ -215,11 +198,9 @@ export async function getUserDataByFid(fid: number, userDataType?: string): Prom
         
         const response = await httpRequest<HttpResponse<HttpUserDataMessage>>('userDataByFid', params);
         const result = response.messages || [];
-        timer.end({ messageCount: result.length });
         return result;
       } catch (error: any) {
         logError(error, 'getUserDataByFid', { fid, userDataType });
-        timer.end({ error: error.message });
         return [];
       }
     },
@@ -250,18 +231,22 @@ export async function getVerificationsByFid(fid: number): Promise<HttpVerificati
  * Get storage limits by FID
  */
 export async function getStorageLimitsByFid(fid: number): Promise<HttpStorageLimits | null> {
-  const timer = startTimer('get_storage_limits_by_fid', { fid });
-  logServiceMethod('http', 'getStorageLimitsByFid', { fid });
-  
-  try {
-    const result = await httpRequest<HttpStorageLimits>('storageLimitsByFid', { fid });
-    timer.end({ success: true });
-    return result;
-  } catch (error: any) {
-    logError(error, 'getStorageLimitsByFid', { fid });
-    timer.end({ error: error.message });
-    return null;
-  }
+  return withSpan(
+    `getStorageLimitsByFid(${fid})`,
+    'function',
+    async () => {
+      logServiceMethod('http', 'getStorageLimitsByFid', { fid });
+      
+      try {
+        const result = await httpRequest<HttpStorageLimits>('storageLimitsByFid', { fid });
+        return result;
+      } catch (error: any) {
+        logError(error, 'getStorageLimitsByFid', { fid });
+        return null;
+      }
+    },
+    { fid }
+  );
 }
 
 /**
@@ -370,36 +355,48 @@ export async function getCustodyAddress(fid: number): Promise<string | null> {
  * Get replies count for a cast with optional full pagination
  */
 export async function getRepliesCount(fid: number, hash: string, fullCount = false): Promise<number> {
-  const timer = startTimer('get_replies_count', { fid, hash, fullCount });
-  logServiceMethod('http', 'getRepliesCount', { fid, hash, fullCount });
-  
-  try {
-    let count: number;
-    if (fullCount) {
-      // Use full pagination for accurate count (slower)
-      count = await getPaginatedCount(httpRequest, 'castsByParent', { fid, hash });
-    } else {
-      // Fast approach - first page only (up to 1k)
-      count = await getFastCount('castsByParent', { fid, hash });
-    }
-    
-    timer.end({ count, method: fullCount ? 'full' : 'fast' });
-    return count;
-  } catch (error: any) {
-    logError(error, 'getRepliesCount', { fid, hash, fullCount });
-    timer.end({ error: error.message });
-    return 0;
-  }
+  return withSpan(
+    `getRepliesCount(${fid}, ${hash.slice(0, 8)}...)`,
+    'function',
+    async () => {
+      logServiceMethod('http', 'getRepliesCount', { fid, hash, fullCount });
+      
+      try {
+        let count: number;
+        if (fullCount) {
+          // Use full pagination for accurate count (slower)
+          count = await getPaginatedCount(httpRequest, 'castsByParent', { fid, hash });
+        } else {
+          // Fast approach - direct HTTP call (first page only, up to 500)
+          const response = await httpRequest<HttpResponse<any>>('castsByParent', { 
+            fid, 
+            hash, 
+            pageSize: 500 
+          });
+          count = response.messages?.length || 0;
+        }
+        
+        return count;
+      } catch (error: any) {
+        logError(error, 'getRepliesCount', { fid, hash, fullCount });
+        return 0;
+      }
+    },
+    { fid, hash, fullCount }
+  );
 }
 
 /**
  * Get reactions count for a cast with optional full pagination
  */
 export async function getReactionsCount(fid: number, hash: string, fullCount = false): Promise<ReactionsCount> {
-  const timer = startTimer('get_reactions_count', { fid, hash, fullCount });
-  logServiceMethod('http', 'getReactionsCount', { fid, hash, fullCount });
-  
-  try {
+  return withSpan(
+    `getReactionsCount(${fid}, ${hash.slice(0, 8)}...)`,
+    'function',
+    async () => {
+      logServiceMethod('http', 'getReactionsCount', { fid, hash, fullCount });
+      
+      try {
     let result: ReactionsCount;
     if (fullCount) {
       // Use full pagination for accurate counts (slower)
@@ -421,33 +418,39 @@ export async function getReactionsCount(fid: number, hash: string, fullCount = f
         recasts: recastsCount
       };
     } else {
-      // Fast approach - first 10 pages (up to 10k each)
-      const [likesCount, recastsCount] = await Promise.all([
-        getFastCount('reactionsByCast', {
+      // Fast approach - direct HTTP calls (first page only, up to 500 each)
+      const [likesResponse, recastsResponse] = await Promise.all([
+        httpRequest<HttpResponse<any>>('reactionsByCast', {
           target_fid: fid,
           target_hash: hash,
-          reaction_type: 'Like'
+          reaction_type: 'Like',
+          pageSize: 500
         }),
-        getFastCount('reactionsByCast', {
+        httpRequest<HttpResponse<any>>('reactionsByCast', {
           target_fid: fid,
           target_hash: hash,
-          reaction_type: 'Recast'
+          reaction_type: 'Recast',
+          pageSize: 500
         })
       ]);
+      
+      const likesCount = likesResponse.messages?.length || 0;
+      const recastsCount = recastsResponse.messages?.length || 0;
       
       result = {
         likes: likesCount,
         recasts: recastsCount
       };
-    }
-    
-    timer.end({ likes: result.likes, recasts: result.recasts, method: fullCount ? 'full' : 'fast' });
-    return result;
-  } catch (error: any) {
-    logError(error, 'getReactionsCount', { fid, hash, fullCount });
-    timer.end({ error: error.message });
-    return { likes: 0, recasts: 0 };
-  }
+        }
+        
+        return result;
+      } catch (error: any) {
+        logError(error, 'getReactionsCount', { fid, hash, fullCount });
+        return { likes: 0, recasts: 0 };
+      }
+    },
+    { fid, hash, fullCount }
+  );
 }
 
 /**
@@ -455,14 +458,33 @@ export async function getReactionsCount(fid: number, hash: string, fullCount = f
  */
 export async function getFollowCounts(fid: number, fullCount = false): Promise<FollowCounts> {
   return withSpan(
-    'http.user.follows.get',
-    `Get follow counts for FID ${fid}`,
+    `getFollowCounts(${fid})`,
+    'function',
     async () => {
-      const timer = startTimer('get_follow_counts', { fid, fullCount });
       logServiceMethod('http', 'getFollowCounts', { fid, fullCount });
       addBreadcrumb(`Getting follow counts for FID ${fid}`, 'http', 'info', { fid, fullCount });
       
       try {
+        // First, try to get from cache
+        const cachedData = await getCachedFollowerCount(fid);
+        if (cachedData) {
+          addBreadcrumb(`Using cached follow counts for FID ${fid}`, 'cache', 'info', { 
+            fid, 
+            followers: cachedData.followerCount, 
+            following: cachedData.followingCount,
+            lastUpdated: new Date(cachedData.lastUpdated).toISOString()
+          });
+          logServiceMethod('http', 'getFollowCounts', { fid, fullCount, source: 'cache', followers: cachedData.followerCount, following: cachedData.followingCount });
+          return {
+            following: cachedData.followingCount,
+            followers: cachedData.followerCount
+          };
+        }
+
+        // Fallback to HTTP API if cache miss
+        addBreadcrumb(`Cache miss for FID ${fid}, using HTTP API`, 'http', 'info', { fid });
+        logServiceMethod('http', 'getFollowCounts', { fid, fullCount, source: 'http' });
+        
         if (fullCount) {
           // Use full pagination for accurate counts (slower)
           const [followingCount, followersCount] = await Promise.all([
@@ -470,31 +492,35 @@ export async function getFollowCounts(fid: number, fullCount = false): Promise<F
             getPaginatedCount(httpRequest, 'linksByTargetFid', { target_fid: fid, link_type: 'follow' })
           ]);
           
-          const result = {
+          return {
             following: followingCount,
             followers: followersCount
           };
-          
-          timer.end({ following: followingCount, followers: followersCount, method: 'full' });
-          return result;
         } else {
-          // Fast approach - first page only (up to 1k each)
-          const [followingCount, followersCount] = await Promise.all([
-            getFastCount('linksByFid', { fid, link_type: 'follow' }),
-            getFastCount('linksByTargetFid', { target_fid: fid, link_type: 'follow' })
+          // Fast approach - direct HTTP calls (first page only, up to 500 each)
+          const [followingResponse, followersResponse] = await Promise.all([
+            httpRequest<HttpResponse<any>>('linksByFid', { 
+              fid, 
+              link_type: 'follow', 
+              pageSize: 500 
+            }),
+            httpRequest<HttpResponse<any>>('linksByTargetFid', { 
+              target_fid: fid, 
+              link_type: 'follow', 
+              pageSize: 500 
+            })
           ]);
           
-          const result = {
+          const followingCount = followingResponse.messages?.length || 0;
+          const followersCount = followersResponse.messages?.length || 0;
+          
+          return {
             following: followingCount,
             followers: followersCount
           };
-          
-          timer.end({ following: followingCount, followers: followersCount, method: 'fast' });
-          return result;
         }
       } catch (error: any) {
         logError(error, 'getFollowCounts', { fid, fullCount });
-        timer.end({ error: error.message });
         return { following: 0, followers: 0 };
       }
     },
@@ -508,63 +534,65 @@ export async function getFollowCounts(fid: number, fullCount = false): Promise<F
  * Returns the primary verified address to match Neynar API behavior
  */
 export async function getAuthAddresses(fid: number, primaryEthAddress?: string): Promise<Array<{address: string, app?: any}>> {
-  const timer = startTimer('get_auth_addresses', { fid, hasPrimaryEthAddress: !!primaryEthAddress });
-  logServiceMethod('http', 'getAuthAddresses', { fid, hasPrimaryEthAddress: !!primaryEthAddress });
-  
-  // If we have a primary ETH address, use that as the auth address (matches Neynar behavior)
-  if (primaryEthAddress) {
-    const result = [{
-      address: primaryEthAddress.toLowerCase(),
-      app: {
-        object: 'user_dehydrated',
-        fid: 9152 // Default to Warpcast for now - would need proper app mapping
-      }
-    }];
-    timer.end({ addressCount: 1, source: 'primary_eth' });
-    return result;
-  }
-
-  // Fallback to most recent signer if no primary address
-  try {
-    const events = await getOnChainSignersByFid(fid);
-    const authAddresses: Array<{address: string, app?: any, timestamp: number}> = [];
-    
-    if (events.length > 0) {
-      for (const event of events) {
-        if (event.signerEventBody?.key) {
-          authAddresses.push({
-            address: event.signerEventBody.key,
-            app: event.signerEventBody.metadata ? {
-              object: 'user_dehydrated',
-              fid: 9152 // Default to Warpcast for now - would need proper app mapping
-            } : undefined,
-            timestamp: event.blockTimestamp
-          });
-        }
-      }
-    }
-    
-    // Sort by timestamp (most recent first) and return only the most recent signer
-    if (authAddresses.length > 0) {
-      authAddresses.sort((a, b) => b.timestamp - a.timestamp);
-      const mostRecentSigner = authAddresses[0];
-      if (mostRecentSigner) {
+  return withSpan(
+    `getAuthAddresses(${fid})`,
+    'function',
+    async () => {
+      logServiceMethod('http', 'getAuthAddresses', { fid, hasPrimaryEthAddress: !!primaryEthAddress });
+      
+      // If we have a primary ETH address, use that as the auth address (matches Neynar behavior)
+      if (primaryEthAddress) {
         const result = [{
-          address: mostRecentSigner.address,
-          app: mostRecentSigner.app
+          address: primaryEthAddress.toLowerCase(),
+          app: {
+            object: 'user_dehydrated',
+            fid: 9152 // Default to Warpcast for now - would need proper app mapping
+          }
         }];
-        timer.end({ addressCount: 1, source: 'recent_signer' });
         return result;
       }
-    }
-    
-    timer.end({ addressCount: 0 });
-    return [];
-  } catch (error: any) {
-    logError(error, 'getAuthAddresses', { fid, hasPrimaryEthAddress: !!primaryEthAddress });
-    timer.end({ error: error.message });
-    return [];
-  }
+
+      // Fallback to most recent signer if no primary address
+      try {
+        const events = await getOnChainSignersByFid(fid);
+        const authAddresses: Array<{address: string, app?: any, timestamp: number}> = [];
+        
+        if (events.length > 0) {
+          for (const event of events) {
+            if (event.signerEventBody?.key) {
+              authAddresses.push({
+                address: event.signerEventBody.key,
+                app: event.signerEventBody.metadata ? {
+                  object: 'user_dehydrated',
+                  fid: 9152 // Default to Warpcast for now - would need proper app mapping
+                } : undefined,
+                timestamp: event.blockTimestamp
+              });
+            }
+          }
+        }
+        
+        // Sort by timestamp (most recent first) and return only the most recent signer
+        if (authAddresses.length > 0) {
+          authAddresses.sort((a, b) => b.timestamp - a.timestamp);
+          const mostRecentSigner = authAddresses[0];
+          if (mostRecentSigner) {
+            const result = [{
+              address: mostRecentSigner.address,
+              app: mostRecentSigner.app
+            }];
+            return result;
+          }
+        }
+        
+        return [];
+      } catch (error: any) {
+        logError(error, 'getAuthAddresses', { fid, hasPrimaryEthAddress: !!primaryEthAddress });
+        return [];
+      }
+    },
+    { fid, primaryEthAddress }
+  );
 }
 
 /**

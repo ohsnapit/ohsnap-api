@@ -12,6 +12,11 @@ export const userQuerySchema = t.Object({
   }))
 });
 
+export const usernameQuerySchema = t.Object({
+  username: t.String(),
+  fullCount: t.Optional(t.String())
+})
+
 export const userResponseSchema = {
   200: t.Object({
     users: t.Array(t.Object({
