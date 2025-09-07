@@ -211,7 +211,7 @@ new Worker(
       
       // Create queue instance directly to avoid importing queue file
       const batchQueue = new Queue("followers-backfill", {
-        connection: { host: "127.0.0.1", port: 16379 },
+        connection: process.env.REDIS_URL ? { url: process.env.REDIS_URL } : { host: "127.0.0.1", port: 16379 },
       });
       
       for (let i = 0; i < batches.length; i++) {
@@ -234,7 +234,7 @@ new Worker(
     }
   },
   { 
-    connection: { host: "127.0.0.1", port: 16379 },
+    connection: process.env.REDIS_URL ? { url: process.env.REDIS_URL } : { host: "127.0.0.1", port: 16379 },
     concurrency: 10
   }
 );

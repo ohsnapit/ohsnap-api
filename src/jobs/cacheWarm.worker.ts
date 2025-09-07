@@ -33,7 +33,7 @@ new Worker(
       }
     }
   },
-  { connection: { host: "127.0.0.1", port: 16379 } }
+  { connection: process.env.REDIS_URL ? { url: process.env.REDIS_URL } : { host: "127.0.0.1", port: 16379 } }
 );
 
 // To trigger a job and run it immediately
