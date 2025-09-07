@@ -2,7 +2,7 @@ import { Queue } from "bullmq";
 
 // Create a one-time script to trigger followers backfill
 const queue = new Queue("followers-backfill", {
-  connection: { host: "127.0.0.1", port: 6379 },
+  connection: { host: "127.0.0.1", port: 16379 },
 });
 
 console.log("Triggering followers backfill job...");

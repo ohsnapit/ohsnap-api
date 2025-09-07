@@ -156,7 +156,7 @@ To add new features:
 
 To get Redis running,
 ```
-docker run --name redis -p 6379:6379 -d redis:7
+docker run --name redis -p 16379:16379 -d redis:7
 ```
 
 To get BullBoard running,

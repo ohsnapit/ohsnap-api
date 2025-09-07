@@ -18,7 +18,7 @@ sleep 2
 
 # Flush Redis to clear any existing jobs and data
 echo "Flushing Redis database..."
-redis-cli -p 6379 flushdb
+redis-cli -p 16379 flushdb
 
 # Start the worker in background
 echo "Starting followers backfill worker..."

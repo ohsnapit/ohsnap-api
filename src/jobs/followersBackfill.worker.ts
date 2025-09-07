@@ -3,7 +3,7 @@ import redis from "../utils/redis.js";
 
 const HTTP_HOST = process.env.HTTP_HOST || "";
 const CACHE_TTL = 60 * 60 * 24;
-const DEFAULT_PAGE_SIZE = 50000;
+const DEFAULT_PAGE_SIZE = 10000;
 
 interface FollowerData {
   fid: number;
@@ -14,7 +14,12 @@ interface FollowerData {
 
 async function fetchAllFidsFromSnapchain(): Promise<number[]> {
   try {
-    const response = await fetch(`${HTTP_HOST}/v1/info`);
+    const response = await fetch(`${HTTP_HOST}/v1/info`, {
+      headers: {
+        'User-Agent': 'OhSnap-API/1.0'
+      }
+    });
+    
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
@@ -50,7 +55,12 @@ async function getAllFollowers(fid: number): Promise<number[]> {
         url.searchParams.set("pageToken", pageToken);
       }
 
-      const response = await fetch(url.toString());
+      const response = await fetch(url.toString(), {
+        headers: {
+          'User-Agent': 'OhSnap-API/1.0'
+        }
+      });
+      
       if (!response.ok) {
         console.error(`HTTP error fetching followers for FID ${fid}: ${response.status}`);
         break;
@@ -66,9 +76,11 @@ async function getAllFollowers(fid: number): Promise<number[]> {
       }
 
       pageToken = data.nextPageToken || "";
-      hasMore = pageToken.length > 0;
+      // Check if nextPageToken is a valid pagination token (not "[null,null]" or its base64 encoding which means no more pages)
+      const isEndToken = pageToken === "[null,null]" || pageToken === "W251bGwsbnVsbF0=";
+      hasMore = pageToken.length > 0 && !isEndToken;
       
-      console.log(`Fetched ${messages.length} follower links for FID ${fid} (total: ${followers.length})`);
+      console.log(`Fetched ${messages.length} follower links for FID ${fid} (requested: ${DEFAULT_PAGE_SIZE}, total: ${followers.length}, nextPageToken: "${pageToken}", hasMore: ${hasMore})`);
     } catch (error) {
       console.error(`Error in pagination for followers of FID ${fid}:`, error);
       break;
@@ -93,7 +105,12 @@ async function getAllFollowing(fid: number): Promise<number[]> {
         url.searchParams.set("pageToken", pageToken);
       }
 
-      const response = await fetch(url.toString());
+      const response = await fetch(url.toString(), {
+        headers: {
+          'User-Agent': 'OhSnap-API/1.0'
+        }
+      });
+      
       if (!response.ok) {
         console.error(`HTTP error fetching following for FID ${fid}: ${response.status}`);
         break;
@@ -109,9 +126,11 @@ async function getAllFollowing(fid: number): Promise<number[]> {
       }
 
       pageToken = data.nextPageToken || "";
-      hasMore = pageToken.length > 0;
+      // Check if nextPageToken is a valid pagination token (not "[null,null]" or its base64 encoding which means no more pages)
+      const isEndToken = pageToken === "[null,null]" || pageToken === "W251bGwsbnVsbF0=";
+      hasMore = pageToken.length > 0 && !isEndToken;
       
-      console.log(`Fetched ${messages.length} following links for FID ${fid} (total: ${following.length})`);
+      console.log(`Fetched ${messages.length} following links for FID ${fid} (requested: ${DEFAULT_PAGE_SIZE}, total: ${following.length}, nextPageToken: "${pageToken}", hasMore: ${hasMore})`);
     } catch (error) {
       console.error(`Error in pagination for following of FID ${fid}:`, error);
       break;
@@ -138,13 +157,13 @@ async function cacheFollowerData(fid: number): Promise<void> {
     };
 
     const countKey = `FOLLOW_COUNT:${fid}`;
-    await redis.set(countKey, JSON.stringify(followerData), { EX: CACHE_TTL });
+    await redis.set(countKey, JSON.stringify(followerData)); //indefenite TTl
 
     const followersKey = `FOLLOWERS:${fid}`;
-    await redis.set(followersKey, JSON.stringify(followers), { EX: CACHE_TTL });
+    await redis.set(followersKey, JSON.stringify(followers)); //indefenite TTl
 
     const followingKey = `FOLLOWING:${fid}`;
-    await redis.set(followingKey, JSON.stringify(following), { EX: CACHE_TTL });
+    await redis.set(followingKey, JSON.stringify(following)); //indefenite TTl
 
     console.log(`Cached follower data for FID ${fid}: ${followerData.followerCount} followers, ${followerData.followingCount} following`);
   } catch (error) {
@@ -154,16 +173,22 @@ async function cacheFollowerData(fid: number): Promise<void> {
 }
 
 async function processFidBatch(fids: number[]): Promise<void> {
-  const promises = fids.map(async (fid) => {
-    try {
-      await cacheFollowerData(fid);
-    } catch (error) {
-      console.error(`Failed to process FID ${fid}:`, error);
-      throw error;
-    }
-  });
+  const results = await Promise.allSettled(
+    fids.map(async (fid) => {
+      try {
+        await cacheFollowerData(fid);
+        return { fid, success: true };
+      } catch (error) {
+        console.error(`Failed to process FID ${fid}:`, error);
+        return { fid, success: false, error };
+      }
+    })
+  );
   
-  await Promise.all(promises);
+  const successful = results.filter(r => r.status === 'fulfilled' && r.value.success).length;
+  const failed = results.length - successful;
+  
+  console.log(`Batch completed: ${successful} successful, ${failed} failed out of ${fids.length} FIDs`);
 }
 
 new Worker(
@@ -186,7 +211,7 @@ new Worker(
       
       // Create queue instance directly to avoid importing queue file
       const batchQueue = new Queue("followers-backfill", {
-        connection: { host: "127.0.0.1", port: 6379 },
+        connection: { host: "127.0.0.1", port: 16379 },
       });
       
       for (let i = 0; i < batches.length; i++) {
@@ -209,7 +234,7 @@ new Worker(
     }
   },
   { 
-    connection: { host: "127.0.0.1", port: 6379 },
+    connection: { host: "127.0.0.1", port: 16379 },
     concurrency: 10
   }
 );

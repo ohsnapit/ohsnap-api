@@ -1,7 +1,7 @@
 import { Queue } from "bullmq";
 
 export const cacheWarmQueue = new Queue("cache-warm", {
-  connection: { host: "127.0.0.1", port: 6379 },
+  connection: { host: "127.0.0.1", port: 16379 },
 });
 
 // This just enqueues "warmUsers" without any payload

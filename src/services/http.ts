@@ -16,6 +16,7 @@ import { getPaginatedCount } from '../utils/pagination.js';
 import { HTTP_BASE_URL } from '../utils/constants.js';
 import { startTimer, logHttpRequest, logHttpResponse, logError, logServiceMethod } from '../utils/logger.js';
 import { withSpan, addBreadcrumb } from '../utils/tracing.js';
+import { getCachedFollowerCount } from '../jobs/followersBackfill.worker.js';
 
 /**
  * Fast count helper - gets up to 1k results (first page only for speed)
@@ -464,6 +465,26 @@ export async function getFollowCounts(fid: number, fullCount = false): Promise<F
       addBreadcrumb(`Getting follow counts for FID ${fid}`, 'http', 'info', { fid, fullCount });
       
       try {
+        // First, try to get from cache
+        const cachedData = await getCachedFollowerCount(fid);
+        if (cachedData) {
+          addBreadcrumb(`Using cached follow counts for FID ${fid}`, 'cache', 'info', { 
+            fid, 
+            followers: cachedData.followerCount, 
+            following: cachedData.followingCount,
+            lastUpdated: new Date(cachedData.lastUpdated).toISOString()
+          });
+          logServiceMethod('http', 'getFollowCounts', { fid, fullCount, source: 'cache', followers: cachedData.followerCount, following: cachedData.followingCount });
+          return {
+            following: cachedData.followingCount,
+            followers: cachedData.followerCount
+          };
+        }
+
+        // Fallback to HTTP API if cache miss
+        addBreadcrumb(`Cache miss for FID ${fid}, using HTTP API`, 'http', 'info', { fid });
+        logServiceMethod('http', 'getFollowCounts', { fid, fullCount, source: 'http' });
+        
         if (fullCount) {
           // Use full pagination for accurate counts (slower)
           const [followingCount, followersCount] = await Promise.all([
@@ -471,12 +492,10 @@ export async function getFollowCounts(fid: number, fullCount = false): Promise<F
             getPaginatedCount(httpRequest, 'linksByTargetFid', { target_fid: fid, link_type: 'follow' })
           ]);
           
-          const result = {
+          return {
             following: followingCount,
             followers: followersCount
           };
-          
-          return result;
         } else {
           // Fast approach - direct HTTP calls (first page only, up to 500 each)
           const [followingResponse, followersResponse] = await Promise.all([
@@ -495,12 +514,10 @@ export async function getFollowCounts(fid: number, fullCount = false): Promise<F
           const followingCount = followingResponse.messages?.length || 0;
           const followersCount = followersResponse.messages?.length || 0;
           
-          const result = {
+          return {
             following: followingCount,
             followers: followersCount
           };
-          
-          return result;
         }
       } catch (error: any) {
         logError(error, 'getFollowCounts', { fid, fullCount });

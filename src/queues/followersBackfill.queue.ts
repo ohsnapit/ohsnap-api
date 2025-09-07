@@ -1,7 +1,7 @@
 import { Queue } from "bullmq";
 
 export const followersBackfillQueue = new Queue("followers-backfill", {
-  connection: { host: "127.0.0.1", port: 6379 },
+  connection: { host: "127.0.0.1", port: 16379 },
 });
 
 if (process.env.NODE_ENV === "production") {
