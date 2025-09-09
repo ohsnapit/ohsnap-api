@@ -2,8 +2,8 @@ import type {
   HttpCastMessage, 
   HttpUserDataMessage, 
   HttpVerificationMessage, 
-  // HttpLinkMessage, // Now handled by getFastCount
-  // HttpReactionMessage, // Now handled by getFastCount
+  HttpLinkMessage,
+  HttpReactionMessage,
   HttpStorageLimits,
   HttpOnChainEvent,
   HttpResponse,
@@ -16,7 +16,7 @@ import { getPaginatedCount } from '../utils/pagination.js';
 import { HTTP_BASE_URL } from '../utils/constants.js';
 import { startTimer, logHttpRequest, logHttpResponse, logError, logServiceMethod } from '../utils/logger.js';
 import { withSpan, addBreadcrumb } from '../utils/tracing.js';
-import { getCachedFollowerCount } from '../jobs/followersBackfill.worker.js';
+import { getCachedFollowerCount } from '../utils/followerCache.js';
 
 /**
  * Fast count helper - gets up to 1k results (first page only for speed)
@@ -715,4 +715,193 @@ export async function getAppProfile(fid: number): Promise<{
     timer.end({ error: error.message });
     return null;
   }
+}
+
+/**
+ * Get reactions by FID with pagination support
+ */
+export async function getReactionsByFid(
+  fid: number,
+  reactionType: string,
+  pageSize: number = 1000,
+  pageToken?: string,
+  reverse: boolean = false
+): Promise<{
+  messages: HttpReactionMessage[];
+  nextPageToken?: string;
+}> {
+  return withSpan(
+    `getReactionsByFid(${fid}, ${reactionType})`,
+    'function',
+    async () => {
+      logServiceMethod('http', 'getReactionsByFid', { 
+        fid, 
+        reactionType, 
+        pageSize, 
+        hasPageToken: !!pageToken, 
+        reverse 
+      });
+      addBreadcrumb(`Getting reactions for FID ${fid}, type ${reactionType}`, 'http', 'info', { 
+        fid, 
+        reactionType, 
+        pageSize, 
+        hasPageToken: !!pageToken, 
+        reverse 
+      });
+      
+      try {
+        const params: Record<string, string | number | boolean> = { 
+          fid,
+          reaction_type: reactionType,
+          pageSize,
+          reverse
+        };
+        
+        if (pageToken) params.pageToken = pageToken;
+        
+        const response = await httpRequest<HttpResponse<HttpReactionMessage>>('reactionsByFid', params);
+        
+        return {
+          messages: response.messages || [],
+          nextPageToken: response.nextPageToken || undefined
+        };
+      } catch (error: any) {
+        logError(error, 'getReactionsByFid', { 
+          fid, 
+          reactionType, 
+          pageSize, 
+          hasPageToken: !!pageToken, 
+          reverse 
+        });
+        return { messages: [] };
+      }
+    },
+    { fid, reactionType, pageSize, hasPageToken: !!pageToken, reverse }
+  );
+}
+
+/**
+ * Get links by FID with pagination support
+ */
+export async function getLinksByFid(
+  fid: number,
+  linkType?: string,
+  pageSize: number = 1000,
+  pageToken?: string,
+  reverse: boolean = false
+): Promise<{
+  messages: HttpLinkMessage[];
+  nextPageToken?: string;
+}> {
+  return withSpan(
+    `getLinksByFid(${fid}${linkType ? `, ${linkType}` : ''})`,
+    'function',
+    async () => {
+      logServiceMethod('http', 'getLinksByFid', { 
+        fid, 
+        linkType, 
+        pageSize, 
+        hasPageToken: !!pageToken, 
+        reverse 
+      });
+      addBreadcrumb(`Getting links for FID ${fid}${linkType ? `, type ${linkType}` : ''}`, 'http', 'info', { 
+        fid, 
+        linkType, 
+        pageSize, 
+        hasPageToken: !!pageToken, 
+        reverse 
+      });
+      
+      try {
+        const params: Record<string, string | number | boolean> = { 
+          fid,
+          pageSize,
+          reverse
+        };
+        
+        if (linkType) params.link_type = linkType;
+        if (pageToken) params.pageToken = pageToken;
+        
+        const response = await httpRequest<HttpResponse<HttpLinkMessage>>('linksByFid', params);
+        
+        return {
+          messages: response.messages || [],
+          nextPageToken: response.nextPageToken || undefined
+        };
+      } catch (error: any) {
+        logError(error, 'getLinksByFid', { 
+          fid, 
+          linkType, 
+          pageSize, 
+          hasPageToken: !!pageToken, 
+          reverse 
+        });
+        return { messages: [] };
+      }
+    },
+    { fid, linkType, pageSize, hasPageToken: !!pageToken, reverse }
+  );
+}
+
+/**
+ * Get links by target FID with pagination support (followers)
+ */
+export async function getLinksByTargetFid(
+  targetFid: number,
+  linkType?: string,
+  pageSize: number = 1000,
+  pageToken?: string,
+  reverse: boolean = false
+): Promise<{
+  messages: HttpLinkMessage[];
+  nextPageToken?: string;
+}> {
+  return withSpan(
+    `getLinksByTargetFid(${targetFid}${linkType ? `, ${linkType}` : ''})`,
+    'function',
+    async () => {
+      logServiceMethod('http', 'getLinksByTargetFid', { 
+        targetFid, 
+        linkType, 
+        pageSize, 
+        hasPageToken: !!pageToken, 
+        reverse 
+      });
+      addBreadcrumb(`Getting links for target FID ${targetFid}${linkType ? `, type ${linkType}` : ''}`, 'http', 'info', { 
+        targetFid, 
+        linkType, 
+        pageSize, 
+        hasPageToken: !!pageToken, 
+        reverse 
+      });
+      
+      try {
+        const params: Record<string, string | number | boolean> = { 
+          target_fid: targetFid,
+          pageSize,
+          reverse
+        };
+        
+        if (linkType) params.link_type = linkType;
+        if (pageToken) params.pageToken = pageToken;
+        
+        const response = await httpRequest<HttpResponse<HttpLinkMessage>>('linksByTargetFid', params);
+        
+        return {
+          messages: response.messages || [],
+          nextPageToken: response.nextPageToken || undefined
+        };
+      } catch (error: any) {
+        logError(error, 'getLinksByTargetFid', { 
+          targetFid, 
+          linkType, 
+          pageSize, 
+          hasPageToken: !!pageToken, 
+          reverse 
+        });
+        return { messages: [] };
+      }
+    },
+    { targetFid, linkType, pageSize, hasPageToken: !!pageToken, reverse }
+  );
 }

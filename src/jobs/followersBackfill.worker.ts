@@ -1,16 +1,10 @@
 import { Worker, Queue } from "bullmq";
 import redis from "../utils/redis.js";
+import type { FollowerData } from "../utils/followerCache.js";
 
 const HTTP_HOST = process.env.HTTP_HOST || "";
 const CACHE_TTL = 60 * 60 * 24;
 const DEFAULT_PAGE_SIZE = 10000;
-
-interface FollowerData {
-  fid: number;
-  followerCount: number;
-  followingCount: number;
-  lastUpdated: number;
-}
 
 async function fetchAllFidsFromSnapchain(): Promise<number[]> {
   try {
@@ -50,7 +44,7 @@ async function getAllFollowers(fid: number): Promise<number[]> {
       const url = new URL(`${HTTP_HOST}/v1/linksByTargetFid`);
       url.searchParams.set("target_fid", fid.toString());
       url.searchParams.set("link_type", "follow");
-      url.searchParams.set("pageSize", DEFAULT_PAGE_SIZE.toString());
+      // url.searchParams.set("pageSize", DEFAULT_PAGE_SIZE.toString());
       if (pageToken) {
         url.searchParams.set("pageToken", pageToken);
       }
@@ -100,7 +94,7 @@ async function getAllFollowing(fid: number): Promise<number[]> {
       const url = new URL(`${HTTP_HOST}/v1/linksByFid`);
       url.searchParams.set("fid", fid.toString());
       url.searchParams.set("link_type", "follow");
-      url.searchParams.set("pageSize", DEFAULT_PAGE_SIZE.toString());
+      // url.searchParams.set("pageSize", DEFAULT_PAGE_SIZE.toString());
       if (pageToken) {
         url.searchParams.set("pageToken", pageToken);
       }
@@ -238,36 +232,3 @@ new Worker(
     concurrency: 10
   }
 );
-
-export async function getCachedFollowerCount(fid: number): Promise<FollowerData | null> {
-  try {
-    const key = `FOLLOW_COUNT:${fid}`;
-    const data = await redis.get(key);
-    return data ? JSON.parse(data) : null;
-  } catch (error) {
-    console.error(`Error retrieving cached follower count for FID ${fid}:`, error);
-    return null;
-  }
-}
-
-export async function getCachedFollowers(fid: number): Promise<number[] | null> {
-  try {
-    const key = `FOLLOWERS:${fid}`;
-    const data = await redis.get(key);
-    return data ? JSON.parse(data) : null;
-  } catch (error) {
-    console.error(`Error retrieving cached followers for FID ${fid}:`, error);
-    return null;
-  }
-}
-
-export async function getCachedFollowing(fid: number): Promise<number[] | null> {
-  try {
-    const key = `FOLLOWING:${fid}`;
-    const data = await redis.get(key);
-    return data ? JSON.parse(data) : null;
-  } catch (error) {
-    console.error(`Error retrieving cached following for FID ${fid}:`, error);
-    return null;
-  }
-}

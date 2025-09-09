@@ -69,11 +69,15 @@ export interface HttpLinkMessage {
     network: string;
     linkBody: {
       type: string;
-      targetFid: number;
-      displayTimestamp?: number;
+      targetFid?: number;
+      displayTimestamp?: number | null;
     };
   };
   hash: string;
+  hashScheme: string;
+  signature: string;
+  signatureScheme: string;
+  signer: string;
 }
 
 export interface HttpReactionMessage {
@@ -92,6 +96,10 @@ export interface HttpReactionMessage {
     };
   };
   hash: string;
+  hashScheme: string;
+  signature: string;
+  signatureScheme: string;
+  signer: string;
 }
 
 export interface HttpStorageLimits {
