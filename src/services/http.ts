@@ -211,20 +211,56 @@ export async function getUserDataByFid(fid: number, userDataType?: string): Prom
 /**
  * Get verifications by FID
  */
-export async function getVerificationsByFid(fid: number): Promise<HttpVerificationMessage[]> {
-  const timer = startTimer('get_verifications_by_fid', { fid });
-  logServiceMethod('http', 'getVerificationsByFid', { fid });
-  
-  try {
-    const response = await httpRequest<HttpResponse<HttpVerificationMessage>>('verificationsByFid', { fid });
-    const result = response.messages || [];
-    timer.end({ messageCount: result.length });
-    return result;
-  } catch (error: any) {
-    logError(error, 'getVerificationsByFid', { fid });
-    timer.end({ error: error.message });
-    return [];
-  }
+export async function getVerificationsByFid(
+  fid: number,
+  pageSize: number = 1000,
+  pageToken?: string,
+  reverse: boolean = false
+): Promise<{ messages: HttpVerificationMessage[]; nextPageToken?: string }> {
+  return withSpan(
+    `getVerificationsByFid(${fid})`,
+    'function',
+    async () => {
+      logServiceMethod('http', 'getVerificationsByFid', { 
+        fid, 
+        pageSize, 
+        hasPageToken: !!pageToken, 
+        reverse 
+      });
+      addBreadcrumb(`Getting verifications for FID ${fid}`, 'http', 'info', { 
+        fid, 
+        pageSize, 
+        hasPageToken: !!pageToken, 
+        reverse 
+      });
+      
+      try {
+        const params: Record<string, string | number | boolean> = { 
+          fid,
+          pageSize,
+          reverse
+        };
+        
+        if (pageToken) params.pageToken = pageToken;
+        
+        const response = await httpRequest<HttpResponse<HttpVerificationMessage>>('verificationsByFid', params);
+        
+        return {
+          messages: response.messages || [],
+          nextPageToken: response.nextPageToken || undefined
+        };
+      } catch (error: any) {
+        logError(error, 'getVerificationsByFid', { 
+          fid, 
+          pageSize, 
+          hasPageToken: !!pageToken, 
+          reverse 
+        });
+        return { messages: [] };
+      }
+    },
+    { fid, pageSize, hasPageToken: !!pageToken, reverse }
+  );
 }
 
 /**

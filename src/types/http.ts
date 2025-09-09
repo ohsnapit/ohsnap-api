@@ -59,6 +59,10 @@ export interface HttpVerificationMessage {
     };
   };
   hash: string;
+  hashScheme: string;
+  signature: string;
+  signatureScheme: string;
+  signer: string;
 }
 
 export interface HttpLinkMessage {

@@ -18,13 +18,15 @@ export async function getEnrichedUserProfile(fid: number, fullCount = false): Pr
       addBreadcrumb(`Getting user profile for FID ${fid}`, 'user', 'info', { fid, fullCount });
       
       try {
-        const [userDataMessages, verificationMessages, followCounts, storageLimits, custodyAddress] = await Promise.all([
+        const [userDataMessages, verificationResponse, followCounts, storageLimits, custodyAddress] = await Promise.all([
           http.getUserDataByFid(fid),
           http.getVerificationsByFid(fid),
           http.getFollowCounts(fid, fullCount),
           http.getStorageLimitsByFid(fid),
           http.getCustodyAddress(fid)
         ]);
+
+        const verificationMessages = verificationResponse.messages;
 
         // Get primary ETH address first to pass to getAuthAddresses
         const parsedUserData = await parseUserData(userDataMessages);
