@@ -134,6 +134,36 @@ async function getAllFollowing(fid: number): Promise<number[]> {
   return following;
 }
 
+async function getTwitterUsername(fid: number): Promise<string | null> {
+    try {
+        const response = await fetch(`${HTTP_HOST}/v1/userDataByFid?fid=${fid}`, {
+            headers: {
+                'User-Agent': 'OhSnap-API/1.0'
+            }
+        });
+        
+        if (!response.ok) {
+            console.error(`HTTP error fetching Twitter username for FID ${fid}: ${response.status}`);
+            return null;
+        }
+        
+        const data = await response.json() as any;
+        const messages = data.messages || [];
+        
+        // Look for Twitter username in user data messages
+        for (const message of messages) {
+            if (message.data?.userDataBody?.type === 'USER_DATA_TYPE_TWITTER') {
+                return message.data.userDataBody.value;
+            }
+        }
+        
+        return null;
+    } catch (error) {
+        console.error(`Error fetching Twitter username for FID ${fid}:`, error);
+        return null;
+    }
+}
+
 async function cacheFollowerData(fid: number): Promise<void> {
   try {
     console.log(`Starting follower/following backfill for FID ${fid}`);
@@ -142,6 +172,8 @@ async function cacheFollowerData(fid: number): Promise<void> {
       getAllFollowers(fid),
       getAllFollowing(fid)
     ]);
+
+    const xUserName = await getTwitterUsername(fid);
 
     const followerData: FollowerData = {
       fid,
@@ -158,6 +190,10 @@ async function cacheFollowerData(fid: number): Promise<void> {
 
     const followingKey = `FOLLOWING:${fid}`;
     await redis.set(followingKey, JSON.stringify(following)); //indefenite TTl
+
+    if (xUserName) {
+        await redis.set(`X_USERNAME:${xUserName.toLowerCase()}`, fid.toString());
+    }
 
     console.log(`Cached follower data for FID ${fid}: ${followerData.followerCount} followers, ${followerData.followingCount} following`);
   } catch (error) {

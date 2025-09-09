@@ -228,13 +228,13 @@ const app = new Elysia()
         const { getFidByUsername } = await import('./services/usernameCache.ts');
         const { getEnrichedUserProfile } = await import('./services/cast.ts');
 
-        // Step 1: Only check cache
+        // Check cache
         const fid = await getFidByUsername(username);
         if (!fid) {
-          return { error: `FID not found in cache for username: ${username}` };
+          return { error: `FID not found for username: ${username}` };
         }
 
-        // Step 2: Fetch enriched profile
+        // Fetch enriched profile
         const useFullCount = fullCount === 'true' || fullCount === '1';
         const user = await getEnrichedUserProfile(fid, useFullCount);
 
@@ -256,13 +256,13 @@ const app = new Elysia()
     description: `Fetches a user's profile by resolving their Xusername to fid (via cache only).
 
 **Usage:**
-- /v1/user/by-username?username=jack
-- /v1/user/by-username?username=jack&fullCount=true`,
+- /v1/user/by-username?username=foo
+- /v1/user/by-username?username=foo&fullCount=true`,
     examples: {
-      jack: {
-        username: "jack",
+      foo: {
+        username: "foo",
         response: {
-          users: [{ fid: 2, username: "jack", display_name: "Jack" }],
+          users: [{ fid: 123, username: "foo", display_name: "bar" }],
           next: { cursor: null }
         }
       }
