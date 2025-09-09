@@ -272,6 +272,36 @@ export async function getOnChainEventsByFid(fid: number, eventType: string): Pro
 }
 
 /**
+ * Get on-chain events by FID (simplified)
+ */
+export async function getOnChainEventsByFidSimple(
+  fid: number, 
+  eventType: string
+): Promise<{ events: HttpOnChainEvent[] }> {
+  return withSpan(
+    `getOnChainEventsByFidSimple(${fid}, ${eventType})`,
+    'function',
+    async () => {
+      logServiceMethod('http', 'getOnChainEventsByFidSimple', { fid, eventType });
+      addBreadcrumb(`Getting onchain events for FID ${fid}, type ${eventType}`, 'http', 'info', { fid, eventType });
+      
+      try {
+        const response = await httpRequest<HttpResponse<never>>('onChainEventsByFid', { 
+          fid, 
+          event_type: eventType 
+        });
+        
+        return { events: response.events || [] };
+      } catch (error: any) {
+        logError(error, 'getOnChainEventsByFidSimple', { fid, eventType });
+        return { events: [] };
+      }
+    },
+    { fid, eventType }
+  );
+}
+
+/**
  * Get on-chain signers by FID
  */
 export async function getOnChainSignersByFid(fid: number): Promise<HttpOnChainEvent[]> {
@@ -288,6 +318,36 @@ export async function getOnChainSignersByFid(fid: number): Promise<HttpOnChainEv
     timer.end({ error: error.message });
     return [];
   }
+}
+
+/**
+ * Get on-chain signers by FID (simplified)
+ */
+export async function getOnChainSignersByFidSimple(
+  fid: number,
+  signer?: string
+): Promise<{ events: HttpOnChainEvent[] }> {
+  return withSpan(
+    `getOnChainSignersByFidSimple(${fid})`,
+    'function',
+    async () => {
+      logServiceMethod('http', 'getOnChainSignersByFidSimple', { fid, signer });
+      addBreadcrumb(`Getting onchain signers for FID ${fid}`, 'http', 'info', { fid, signer });
+      
+      try {
+        const params: Record<string, string | number> = { fid };
+        if (signer) params.signer = signer;
+        
+        const response = await httpRequest<HttpResponse<never>>('onChainSignersByFid', params);
+        
+        return { events: response.events || [] };
+      } catch (error: any) {
+        logError(error, 'getOnChainSignersByFidSimple', { fid, signer });
+        return { events: [] };
+      }
+    },
+    { fid, signer }
+  );
 }
 
 /**

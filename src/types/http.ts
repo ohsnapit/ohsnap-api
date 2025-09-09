@@ -136,7 +136,9 @@ export interface HttpOnChainEvent {
     from: string;
     recoveryAddress: string;
   };
+  tier_purchase_event_body?: any;
   txIndex: number;
+  version: number;
 }
 
 export interface HttpResponse<T> {
