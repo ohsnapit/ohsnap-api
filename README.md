@@ -155,24 +155,22 @@ To add new features:
 ## Cache
 
 To get Redis running,
-```
+```bash
 docker run --name redis -p 16379:16379 -d redis:7
 ```
 
 To get BullBoard running,
-```
-bun run src/queues/cacheWarm.queue.ts
-```
+```bash
 bun run src/utils/dashboard.ts
 ```
 
 To get the cache warm worker running,
-```
+```bash
 bun run src/jobs/cacheWarm.worker.ts
 ```
 
 To get the queue running which then triggers a job,
-```
+```bash
 bun run src/queues/cacheWarm.queue.ts
 ```
 
@@ -193,7 +191,7 @@ The Cache workflow for follow count is currently this:
    - `FOLLOWING:{fid}` - full following list
 
 To run the followers backfill:
-```
+```bash
 # Start the worker
 bun run src/jobs/followersBackfill.worker.ts
 
@@ -201,7 +199,7 @@ bun run src/jobs/followersBackfill.worker.ts
 bun run src/queues/followersBackfill.queue.ts
 ```  
 To run the followers backfill(dev/test):
-```
+```bash
 # Run the shell script
 ./start-followers-backfill.sh
 ```  

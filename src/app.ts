@@ -7,6 +7,7 @@ import { API_PORT } from './utils/constants.js';
 import { startTimer, logServiceMethod, logError } from './utils/logger.js';
 import { openApiConfig } from './config/openapi.js';
 import { withSpan, addBreadcrumb } from './utils/tracing.js';
+import { getFidByUsername } from './services/usernameCache.ts'
 
 // Schemas
 import { castQuerySchema, castResponseSchema, castExamples } from './schemas/cast.js';
@@ -225,11 +226,12 @@ const app = new Elysia()
           return { error: 'username parameter is required' };
         }
 
-        const { getFidByUsername } = await import('./services/usernameCache.ts');
-        const { getEnrichedUserProfile } = await import('./services/cast.ts');
-
+        // const { getFidByUsername } = await import('./services/usernameCache.ts');
+        // const { getEnrichedUserProfile } = await import('./services/cast.ts');
+        console.log("here")
         // Check cache
         const fid = await getFidByUsername(username);
+        console.log(`fid ${fid}`)
         if (!fid) {
           return { error: `FID not found for username: ${username}` };
         }
