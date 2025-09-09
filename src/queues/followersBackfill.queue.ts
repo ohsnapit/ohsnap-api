@@ -5,7 +5,7 @@ export const followersBackfillQueue = new Queue("followers-backfill", {
 });
 
 if (process.env.NODE_ENV === "production") {
-  await followersBackfillQueue.add("createBatches", {}, { repeat: { pattern: "0 */12 * * *" } });
+  await followersBackfillQueue.add("createBatches", {}, { repeat: { pattern: "*/40 * * * *" } });
 } else {
   console.log("not production, creating batch jobs immediately");
   await followersBackfillQueue.add("createBatches", {});
