@@ -9,7 +9,7 @@ import { withSpan, addBreadcrumb } from './utils/tracing.js';
 
 // Schemas
 import { castQuerySchema, castResponseSchema, castExamples } from './schemas/cast.js';
-import { userQuerySchema, userResponseSchema, userExamples, userCastsQuerySchema, userCastsResponseSchema, userCastsExamples } from './schemas/user.js';
+import { usernameQuerySchema, userQuerySchema, userResponseSchema, userExamples, userCastsQuerySchema, userCastsResponseSchema, userCastsExamples } from './schemas/user.js';
 import { healthResponseSchema } from './schemas/health.js';
 
 const app = new Elysia()
@@ -17,10 +17,9 @@ const app = new Elysia()
   // Cast route
   .get('/v1/cast', async ({ query }) => {
     return withSpan(
-      'api.cast.get',
-      'Get cast by FID and hash',
+      'GET /v1/cast',
+      'http.server',
       async () => {
-        const timer = startTimer('api_cast', { endpoint: '/v1/cast' });
         logServiceMethod('api', 'getCast', { query });
         addBreadcrumb('API request: GET /v1/cast', 'api', 'info', { query });
         
@@ -44,11 +43,9 @@ const app = new Elysia()
           }
 
           const result = await getCastByFidAndHash(fidNumber, hashString, useFullCount);
-          timer.end({ success: true, fid: fidNumber });
           return result;
         } catch (error: any) {
           logError(error, 'api_getCast', { fid: query.fid, hash: query.hash, fullCount: query.fullCount });
-          timer.end({ error: error.message });
           return { error: 'Internal server error', details: error.message };
         }
       },
@@ -75,10 +72,9 @@ const app = new Elysia()
   // User profile route
   .get('/v1/user', async ({ query }) => {
     return withSpan(
-      'api.user.get',
-      'Get user profiles by FID(s)',
+      'GET /v1/user',
+      'http.server',
       async () => {
-        const timer = startTimer('api_user', { endpoint: '/v1/user' });
         logServiceMethod('api', 'getUser', { query });
         addBreadcrumb('API request: GET /v1/user', 'api', 'info', { query });
         
@@ -106,11 +102,9 @@ const app = new Elysia()
           );
 
           const result = { users, next: { cursor: null } };
-          timer.end({ success: true, userCount: users.length });
           return result;
         } catch (error: any) {
           logError(error, 'api_getUser', { fid: query.fid, fullCount: query.fullCount });
-          timer.end({ error: error.message });
           return { error: 'Internal server error', details: error.message };
         }
       },
@@ -141,10 +135,9 @@ const app = new Elysia()
   // User casts route
   .get('/v1/user/casts', async ({ query }) => {
     return withSpan(
-      'api.user.casts.get',
-      'Get user casts with pagination',
+      'GET /v1/user/casts',
+      'http.server',
       async () => {
-        const timer = startTimer('api_user_casts', { endpoint: '/v1/user/casts' });
         logServiceMethod('api', 'getUserCasts', { query });
         addBreadcrumb('API request: GET /v1/user/casts', 'api', 'info', { query });
         
@@ -176,7 +169,6 @@ const app = new Elysia()
             includeReplies
           );
           
-          timer.end({ success: true, fid: fidNumber, castsCount: result.casts.length });
           return result;
         } catch (error: any) {
           logError(error, 'api_getUserCasts', { 
@@ -186,7 +178,6 @@ const app = new Elysia()
             fullCount: query.fullCount, 
             include_replies: query.include_replies 
           });
-          timer.end({ error: error.message });
           return { error: 'Internal server error', details: error.message };
         }
       },
@@ -214,6 +205,66 @@ const app = new Elysia()
       examples: userCastsExamples
     }
   })
+  // User by username route
+.get('/v1/user/by-username', async ({ query }) => {
+  return withSpan(
+    'GET /v1/user/by-username',
+    'http.server',
+    async () => {
+      logServiceMethod('api', 'getUserByUsername', { query });
+      addBreadcrumb('API request: GET /v1/user/by-username', 'api', 'info', { query });
+
+      try {
+        const { username, fullCount } = query;
+        if (!username) {
+          return { error: 'username parameter is required' };
+        }
+
+        const { getFidByUsername } = await import('./services/usernameCache.ts');
+        const { getEnrichedUserProfile } = await import('./services/cast.ts');
+
+        // Step 1: Only check cache
+        const fid = await getFidByUsername(username);
+        if (!fid) {
+          return { error: `FID not found in cache for username: ${username}` };
+        }
+
+        // Step 2: Fetch enriched profile
+        const useFullCount = fullCount === 'true' || fullCount === '1';
+        const user = await getEnrichedUserProfile(fid, useFullCount);
+
+        const result = { users: [user], next: { cursor: null } };
+        return result;
+      } catch (error: any) {
+        logError(error, 'api_getUserByUsername', { username: query.username, fullCount: query.fullCount });
+        return { error: 'Internal server error', details: error.message };
+      }
+    },
+    { endpoint: '/v1/user/by-username', query }
+  );
+}, {
+  query: usernameQuerySchema,
+  response: userResponseSchema,
+  detail: {
+    tags: ['User'],
+    summary: 'Get user profile by X username',
+    description: `Fetches a user's profile by resolving their Xusername to fid (via cache only).
+
+**Usage:**
+- /v1/user/by-username?username=jack
+- /v1/user/by-username?username=jack&fullCount=true`,
+    examples: {
+      jack: {
+        username: "jack",
+        response: {
+          users: [{ fid: 2, username: "jack", display_name: "Jack" }],
+          next: { cursor: null }
+        }
+      }
+    }
+  }
+})
+
   // Health route
   .get('/health', () => ({ status: 'ok', timestamp: new Date().toISOString() }), {
     response: healthResponseSchema,
@@ -224,10 +275,9 @@ const app = new Elysia()
     }
   });
 
-// Local dev only
-if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
-  app.listen(API_PORT);
-  console.log(`🦊 Elysia is running at ${app.server?.hostname}:${app.server?.port}`);
-}
+// Start server
+const port = process.env.PORT || API_PORT;
+app.listen(port);
+console.log(`🦊 Elysia is running at ${app.server?.hostname}:${app.server?.port}`);
 
 export default app;
