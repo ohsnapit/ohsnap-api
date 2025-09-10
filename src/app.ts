@@ -228,7 +228,6 @@ const app = new Elysia()
 
         // const { getFidByUsername } = await import('./services/usernameCache.ts');
         // const { getEnrichedUserProfile } = await import('./services/cast.ts');
-        console.log("here")
         // Check cache
         const fid = await getFidByUsername(username);
         console.log(`fid ${fid}`)
