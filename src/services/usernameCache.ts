@@ -9,7 +9,7 @@ export async function setUsernameFid(username: string, fid: number) {
 
 export async function getFidByUsername(username: string): Promise<number | null> {
   console.log("in here")
-  const key = `USERNAME:${username.toLowerCase()}`;
+  const key = `X_USERNAME:${username.toLowerCase()}`;
   const fidStr = await redis.get(key);
   console.log(`fidstr ${fidStr}`)
   return fidStr ? parseInt(fidStr, 10) : null;

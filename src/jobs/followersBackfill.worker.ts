@@ -153,6 +153,7 @@ async function getTwitterUsername(fid: number): Promise<string | null> {
         // Look for Twitter username in user data messages
         for (const message of messages) {
             if (message.data?.userDataBody?.type === 'USER_DATA_TYPE_TWITTER') {
+                console.log(`Fetching twitter username for ${fid}`)
                 return message.data.userDataBody.value;
             }
         }
@@ -193,6 +194,7 @@ async function cacheFollowerData(fid: number): Promise<void> {
 
     if (xUserName) {
         await redis.set(`X_USERNAME:${xUserName.toLowerCase()}`, fid.toString());
+        console.log(`Cached x username for fid ${fid}: ${xUserName}`)
     }
 
     console.log(`Cached follower data for FID ${fid}: ${followerData.followerCount} followers, ${followerData.followingCount} following`);
