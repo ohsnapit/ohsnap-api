@@ -941,3 +941,33 @@ export async function getLinksByTargetFid(
     { targetFid, linkType, pageSize, hasPageToken: !!pageToken, reverse }
   );
 }
+
+
+export async function getCastsByParent(
+  parentFid: number,
+  parentHash: string,
+  pageToken?: string,
+  pageSize: number = 25,
+  reverse: boolean = true
+): Promise<HttpResponse<HttpCastMessage>> {
+  return withSpan(
+    `getCastsByParent(${parentFid}, ${parentHash})`,
+    'function',
+    async () => {
+      logServiceMethod('http', 'getCastsByParent', { parentFid, parentHash, pageSize, reverse, hasPageToken: !!pageToken });
+      addBreadcrumb(`Getting casts for parent ${parentFid}:${parentHash}`, 'http', 'info', { parentFid, parentHash, pageSize, reverse, hasPageToken: !!pageToken });
+      
+      const params: Record<string, string | number | boolean> = { 
+        parentFid,
+        parentHash,
+        pageSize,
+        reverse
+      };
+
+      if (pageToken) params.pageToken = pageToken;
+      
+      return httpRequest<HttpResponse<HttpCastMessage>>('castsByParent', params);
+    },
+    { parentFid, parentHash, pageSize, reverse, hasPageToken: !!pageToken }
+  );
+}

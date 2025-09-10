@@ -4,7 +4,8 @@ import { buildUserProfile, parseUserData, parseVerifications } from '../transfor
 import { buildCastResponse, calculateMentionRanges } from '../transformers/cast.js';
 import { startTimer, logServiceMethod, logError } from '../utils/logger.js';
 import { withSpan, addBreadcrumb } from '../utils/tracing.js';
-
+import { getLinksByTargetFid, getLinksByFid, getReactionsByFid, getCastsByParent } from './http.ts';
+import { getCachedFollowerCount, getCachedFollowers, getCachedFollowing } from '../utils/followerCache.ts';
 /**
  * Get enriched user profile data
  */
@@ -317,3 +318,71 @@ export async function getCastsByFid(
     { fid, pageToken: !!pageToken, pageSize, fullCount, includeReplies }
   );
 }
+
+
+export async function getFullCastBundle(fid: number, hash: string) {
+  // Base cast
+  console.log("here")
+  const cast = await getCastByFidAndHash(fid, hash, true);
+  console.log("cast", cast)
+  if (!cast) return null;
+
+  // Author profile
+  const user = await getEnrichedUserProfile(fid, true);
+  console.log("user", user)
+  // Likes
+  const likesRes = await getReactionsByFid(fid, "like", 1000);
+  console.log("likesRes", likesRes)
+  const likeFids =
+    likesRes?.messages?.map((msg: any) => msg.data?.fid).filter(Boolean) || [];
+  console.log("likeFids", likeFids)
+  // Recasts
+  const recastsRes = await getReactionsByFid(fid, "recast", 1000);
+  console.log("recastsRes", recastsRes)
+  const recastFids =
+    recastsRes?.messages?.map((msg: any) => msg.data?.fid).filter(Boolean) || [];
+
+  // Replies (casts with parent = this cast)
+  // const repliesRes = await getCastsByParent(fid, hash, undefined, 25, true);
+  // console.log("repliesRes", repliesRes)
+  // const replyHashes =
+  //   repliesRes?.casts?.map((c: any) => c.hash).filter(Boolean) || [];
+
+  // Followers / Following
+  console.log("follower bucket")
+  const cachedCounts = await getCachedFollowerCount(fid);
+  const cachedFollowers = await getCachedFollowers(fid);
+  const cachedFollowing = await getCachedFollowing(fid);
+
+  const followers = {
+    total: cachedCounts?.followerCount ?? (cachedFollowers?.length || 0),
+    fids: cachedFollowers || [],
+  };
+
+  const following = {
+    total: cachedCounts?.followingCount ?? (cachedFollowing?.length || 0),
+    fids: cachedFollowing || [],
+  };
+
+  return {
+    cast,
+    user,
+    likes: {
+      total: likeFids.length,
+      fids: [...new Set(likeFids)],
+    },
+    recasts: {
+      total: recastFids.length,
+      fids: [...new Set(recastFids)],
+    },
+    // replies: {
+    //   total: replyHashes.length,
+    //   hashes: [...new Set(replyHashes)],
+    // },
+    followers,
+    following,
+    }
+  };
+
+  
+

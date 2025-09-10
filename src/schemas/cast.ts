@@ -146,3 +146,47 @@ export const castExamples = [
     }
   }
 ];
+
+
+export const castFullResponseSchema = {
+  type: "object",
+  properties: {
+    cast: { type: "object" },
+    user: { type: "object" },
+    likes: {
+      type: "object",
+      properties: {
+        total: { type: "number" },
+        fids: { type: "array", items: { type: "number" } }
+      }
+    },
+    recasts: {
+      type: "object",
+      properties: {
+        total: { type: "number" },
+        fids: { type: "array", items: { type: "number" } }
+      }
+    },
+    replies: {
+      type: "object",
+      properties: {
+        total: { type: "number" },
+        hashes: { type: "array", items: { type: "string" } }
+      }
+    },
+    followers: {
+      type: "object",
+      properties: {
+        total: { type: "number" },
+        fids: { type: "array", items: { type: "number" } }
+      }
+    },
+    following: {
+      type: "object",
+      properties: {
+        total: { type: "number" },
+        fids: { type: "array", items: { type: "number" } }
+      }
+    }
+  }
+};
