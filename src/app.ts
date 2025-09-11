@@ -114,7 +114,7 @@ const app = new Elysia()
     response: castFullResponseSchema,
     detail: {
       tags: ['Cast'],
-      summary: 'Get fully enriched cast with user, reactions, replies, and social graph',
+      summary: 'Get cast reactions and replies',
       description: `Returns the cast, its author, lists of liker/recast/replier FIDs, and follower/following info.`,
       examples: {
         example: {

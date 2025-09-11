@@ -958,8 +958,8 @@ export async function getCastsByParent(
       addBreadcrumb(`Getting casts for parent ${parentFid}:${parentHash}`, 'http', 'info', { parentFid, parentHash, pageSize, reverse, hasPageToken: !!pageToken });
       
       const params: Record<string, string | number | boolean> = { 
-        parentFid,
-        parentHash,
+        fid: parentFid,
+        hash: parentHash,
         pageSize,
         reverse
       };
@@ -1022,5 +1022,4 @@ export async function getReactionsByCast(
     { targetFid, targetHash, reactionType, pageSize, hasPageToken: !!pageToken }
   );
 }
-
 

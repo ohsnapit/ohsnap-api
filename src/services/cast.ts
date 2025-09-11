@@ -338,10 +338,9 @@ export async function getFullCastBundle(fid: number, hash: string) {
     recastsRes?.messages?.map((msg: any) => msg.data?.fid).filter(Boolean) || [];
 
   // Replies (casts with parent = this cast)
-  // const repliesRes = await getCastsByParent(fid, hash, undefined, 25, true);
-  // console.log("repliesRes", repliesRes)
-  // const replyHashes =
-  //   repliesRes?.casts?.map((c: any) => c.hash).filter(Boolean) || [];
+  const repliesRes = await getCastsByParent(fid, hash, undefined, 25, true);
+  const replyHashes =
+    repliesRes?.messages?.map((c: any) => c.hash).filter(Boolean) || [];
 
   // Followers / Following
   const cachedCounts = await getCachedFollowerCount(fid);
@@ -382,10 +381,10 @@ export async function getFullCastBundle(fid: number, hash: string) {
       total: recastFids.length,
       fids: [...new Set(recastFids)],
     },
-    // replies: {
-    //   total: replyHashes.length,
-    //   hashes: [...new Set(replyHashes)],
-    // },
+    replies: {
+      total: replyHashes.length,
+      hashes: [...new Set(replyHashes)],
+    },
     followers,
     following,
     }
