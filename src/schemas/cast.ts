@@ -151,8 +151,28 @@ export const castExamples = [
 export const castFullResponseSchema = {
   type: "object",
   properties: {
-    cast: { type: "object" },
-    user: { type: "object" },
+    cast: {
+      type: "object",
+      properties: {
+        hash: { type: "string" },
+        text: { type: "string" },
+        timestamp: { type: "string" },
+        authorFid: { type: "number" }
+      },
+      required: ["hash", "text", "timestamp", "authorFid"]
+    },
+    user: {
+      type: "object",
+      properties: {
+        fid: { type: "number" },
+        username: { type: "string" },
+        displayName: { type: "string" },
+        pfpUrl: { type: "string" },
+        followerCount: { type: "number" },
+        followingCount: { type: "number" }
+      },
+      required: ["fid", "username", "displayName", "pfpUrl"]
+    },
     likes: {
       type: "object",
       properties: {

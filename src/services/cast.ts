@@ -363,10 +363,23 @@ export async function getFullCastBundle(fid: number, hash: string) {
     total: cachedCounts?.followingCount ?? (cachedFollowing?.length || 0),
     fids: cachedFollowing || [],
   };
+  const baseCast = cast.cast; // unwrap the nested "cast"
 
   return {
-    cast,
-    user,
+    cast: {
+      hash: baseCast.hash,
+      text: baseCast.text,
+      timestamp: baseCast.timestamp,
+      authorFid: baseCast.author?.fid,
+    },
+    user: {
+      fid: user.fid,
+      username: user.username,
+      displayName: user.display_name,
+      pfpUrl: user.pfp_url,
+      followerCount: user.follower_count,
+      followingCount: user.following_count,
+    },
     likes: {
       total: likeFids.length,
       fids: [...new Set(likeFids)],
