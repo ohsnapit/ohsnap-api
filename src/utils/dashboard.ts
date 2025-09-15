@@ -2,7 +2,7 @@ import express from "express";
 import { ExpressAdapter } from "@bull-board/express";
 import { createBullBoard } from "@bull-board/api";
 import { BullMQAdapter } from "@bull-board/api/bullMQAdapter";
-import { cacheWarmQueue } from "../queues/cacheWarm.queue.ts";
+import { cacheWarmQueue } from "../queues/test.cacheWarm.queue.ts";
 import { followersBackfillQueue } from "../queues/followersBackfill.queue.ts";
 
 const app = express();

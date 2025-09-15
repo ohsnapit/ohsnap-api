@@ -146,3 +146,67 @@ export const castExamples = [
     }
   }
 ];
+
+
+export const castFullResponseSchema = {
+  type: "object",
+  properties: {
+    cast: {
+      type: "object",
+      properties: {
+        hash: { type: "string" },
+        text: { type: "string" },
+        timestamp: { type: "string" },
+        authorFid: { type: "number" }
+      },
+      required: ["hash", "text", "timestamp", "authorFid"]
+    },
+    user: {
+      type: "object",
+      properties: {
+        fid: { type: "number" },
+        username: { type: "string" },
+        displayName: { type: "string" },
+        pfpUrl: { type: "string" },
+        followerCount: { type: "number" },
+        followingCount: { type: "number" }
+      },
+      required: ["fid", "username", "displayName", "pfpUrl"]
+    },
+    likes: {
+      type: "object",
+      properties: {
+        total: { type: "number" },
+        fids: { type: "array", items: { type: "number" } }
+      }
+    },
+    recasts: {
+      type: "object",
+      properties: {
+        total: { type: "number" },
+        fids: { type: "array", items: { type: "number" } }
+      }
+    },
+    replies: {
+      type: "object",
+      properties: {
+        total: { type: "number" },
+        hashes: { type: "array", items: { type: "string" } }
+      }
+    },
+    followers: {
+      type: "object",
+      properties: {
+        total: { type: "number" },
+        fids: { type: "array", items: { type: "number" } }
+      }
+    },
+    following: {
+      type: "object",
+      properties: {
+        total: { type: "number" },
+        fids: { type: "array", items: { type: "number" } }
+      }
+    }
+  }
+};
