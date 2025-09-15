@@ -941,3 +941,85 @@ export async function getLinksByTargetFid(
     { targetFid, linkType, pageSize, hasPageToken: !!pageToken, reverse }
   );
 }
+
+
+export async function getCastsByParent(
+  parentFid: number,
+  parentHash: string,
+  pageToken?: string,
+  pageSize: number = 25,
+  reverse: boolean = true
+): Promise<HttpResponse<HttpCastMessage>> {
+  return withSpan(
+    `getCastsByParent(${parentFid}, ${parentHash})`,
+    'function',
+    async () => {
+      logServiceMethod('http', 'getCastsByParent', { parentFid, parentHash, pageSize, reverse, hasPageToken: !!pageToken });
+      addBreadcrumb(`Getting casts for parent ${parentFid}:${parentHash}`, 'http', 'info', { parentFid, parentHash, pageSize, reverse, hasPageToken: !!pageToken });
+      
+      const params: Record<string, string | number | boolean> = { 
+        fid: parentFid,
+        hash: parentHash,
+        pageSize,
+        reverse
+      };
+
+      if (pageToken) params.pageToken = pageToken;
+      
+      return httpRequest<HttpResponse<HttpCastMessage>>('castsByParent', params);
+    },
+    { parentFid, parentHash, pageSize, reverse, hasPageToken: !!pageToken }
+  );
+}
+
+export async function getReactionsByCast(
+  targetFid: number,
+  targetHash: string,
+  reactionType: "Like" | "Recast",
+  pageSize: number = 100,
+  pageToken?: string
+): Promise<HttpResponse<HttpReactionMessage>> {
+  return withSpan(
+    `getReactionsByCast(${targetFid}, ${targetHash}, ${reactionType})`,
+    "function",
+    async () => {
+      logServiceMethod("http", "getReactionsByCast", { targetFid, targetHash, reactionType, pageSize, hasPageToken: !!pageToken });
+      addBreadcrumb(
+        `Getting reactions for cast ${targetHash}`,
+        "http",
+        "info",
+        { targetFid, targetHash, reactionType, pageSize, hasPageToken: !!pageToken }
+      );
+
+      const params: Record<string, string | number> = {
+        target_fid: targetFid,
+        target_hash: targetHash,
+        reaction_type: reactionType,
+        page_size: pageSize,
+      };
+      if (pageToken) params.pageToken = pageToken;
+
+      try {
+        const res = await httpRequest<HttpResponse<HttpReactionMessage>>("reactionsByCast", params);
+
+        // Log response for debugging if no messages returned
+        if (!res?.messages) {
+          console.warn("Reactions API response missing messages:", res);
+        }
+
+        return res;
+      } catch (err: any) {
+        console.error("Failed to fetch reactions by cast:", {
+          targetFid,
+          targetHash,
+          reactionType,
+          error: err.message,
+          stack: err.stack,
+        });
+        throw err;
+      }
+    },
+    { targetFid, targetHash, reactionType, pageSize, hasPageToken: !!pageToken }
+  );
+}
+

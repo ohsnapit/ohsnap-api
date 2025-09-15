@@ -4,7 +4,8 @@ import { buildUserProfile, parseUserData, parseVerifications } from '../transfor
 import { buildCastResponse, calculateMentionRanges } from '../transformers/cast.js';
 import { startTimer, logServiceMethod, logError } from '../utils/logger.js';
 import { withSpan, addBreadcrumb } from '../utils/tracing.js';
-
+import { getLinksByTargetFid, getLinksByFid, getReactionsByFid, getCastsByParent, getReactionsByCast } from './http.ts';
+import { getCachedFollowerCount, getCachedFollowers, getCachedFollowing } from '../utils/followerCache.ts';
 /**
  * Get enriched user profile data
  */
@@ -317,3 +318,77 @@ export async function getCastsByFid(
     { fid, pageToken: !!pageToken, pageSize, fullCount, includeReplies }
   );
 }
+
+
+export async function getFullCastBundle(fid: number, hash: string) {
+  // Base cast
+  const cast = await getCastByFidAndHash(fid, hash, true);
+  if (!cast) return null;
+
+  // Author profile
+  const user = await getEnrichedUserProfile(fid, true);
+  // Likes
+  const likesRes = await getReactionsByCast(fid, hash, "Like", 1000);
+  const likeFids =
+    likesRes?.messages?.map((msg: any) => msg.data?.fid).filter(Boolean) || [];
+  
+  // Recasts on this cast
+  const recastsRes = await getReactionsByCast(fid, hash, "Recast", 1000);
+  const recastFids =
+    recastsRes?.messages?.map((msg: any) => msg.data?.fid).filter(Boolean) || [];
+
+  // Replies (casts with parent = this cast)
+  const repliesRes = await getCastsByParent(fid, hash, undefined, 25, true);
+  const replyHashes =
+    repliesRes?.messages?.map((c: any) => c.hash).filter(Boolean) || [];
+
+  // Followers / Following
+  const cachedCounts = await getCachedFollowerCount(fid);
+  const cachedFollowers = await getCachedFollowers(fid);
+  const cachedFollowing = await getCachedFollowing(fid);
+
+  const followers = {
+    total: cachedCounts?.followerCount ?? (cachedFollowers?.length || 0),
+    fids: cachedFollowers || [],
+  };
+
+  const following = {
+    total: cachedCounts?.followingCount ?? (cachedFollowing?.length || 0),
+    fids: cachedFollowing || [],
+  };
+  const baseCast = cast.cast; // unwrap the nested "cast"
+
+  return {
+    cast: {
+      hash: baseCast.hash,
+      text: baseCast.text,
+      timestamp: baseCast.timestamp,
+      authorFid: baseCast.author?.fid,
+    },
+    user: {
+      fid: user.fid,
+      username: user.username,
+      displayName: user.display_name,
+      pfpUrl: user.pfp_url,
+      followerCount: user.follower_count,
+      followingCount: user.following_count,
+    },
+    likes: {
+      total: likeFids.length,
+      fids: [...new Set(likeFids)],
+    },
+    recasts: {
+      total: recastFids.length,
+      fids: [...new Set(recastFids)],
+    },
+    replies: {
+      total: replyHashes.length,
+      hashes: [...new Set(replyHashes)],
+    },
+    followers,
+    following,
+    }
+  };
+
+  
+
