@@ -55,6 +55,36 @@ export const reactionsByFidResponseSchema = {
   500: t.Object({ error: t.String(), details: t.Optional(t.String()) })
 };
 
+// Reactions by Cast schemas
+export const reactionsByCastQuerySchema = t.Object({
+  target_fid: t.String({
+    description: 'The FID of the cast author',
+    example: '860783'
+  }),
+  target_hash: t.String({
+    description: 'The hash of the target cast',
+    example: '0xcefff5d03bf661f4f9d709386816bd4d6ba49c72'
+  }),
+  reaction_type: t.String({
+    description: 'The type of reaction, use string representation',
+    example: 'Like',
+    enum: ['Like', 'Recast']
+  }),
+  pageSize: t.Optional(t.String({
+    description: 'Optional page size (default: 100)',
+    example: '100'
+  })),
+  pageToken: t.Optional(t.String({
+    description: 'Optional page token for pagination',
+    example: 'DAEDAAAGlQ...'
+  })),
+  reverse: t.Optional(t.String({
+    description: 'Optional reverse order flag',
+    example: 'true',
+    enum: ['true', 'false']
+  }))
+});
+
 export const reactionsByFidExamples = [
   {
     summary: 'Get likes by FID',
@@ -70,5 +100,23 @@ export const reactionsByFidExamples = [
     summary: 'With pagination',
     description: 'Returns paginated results with custom page size.',
     value: { fid: '3', reaction_type: 'Like', pageSize: '100', reverse: 'true' }
+  }
+];
+
+export const reactionsByCastExamples = [
+  {
+    summary: 'Get likes for a cast',
+    description: 'Returns all likes for a specific cast.',
+    value: { target_fid: '860783', target_hash: '0xcefff5d03bf661f4f9d709386816bd4d6ba49c72', reaction_type: 'Like' }
+  },
+  {
+    summary: 'Get recasts for a cast',
+    description: 'Returns all recasts for a specific cast.',
+    value: { target_fid: '860783', target_hash: '0xcefff5d03bf661f4f9d709386816bd4d6ba49c72', reaction_type: 'Recast' }
+  },
+  {
+    summary: 'With pagination',
+    description: 'Returns paginated results with custom page size.',
+    value: { target_fid: '860783', target_hash: '0xcefff5d03bf661f4f9d709386816bd4d6ba49c72', reaction_type: 'Like', pageSize: '100', reverse: 'true' }
   }
 ];

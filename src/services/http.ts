@@ -977,7 +977,8 @@ export async function getReactionsByCast(
   targetHash: string,
   reactionType: "Like" | "Recast",
   pageSize: number = 100,
-  pageToken?: string
+  pageToken?: string,
+  reverse: boolean = true
 ): Promise<HttpResponse<HttpReactionMessage>> {
   return withSpan(
     `getReactionsByCast(${targetFid}, ${targetHash}, ${reactionType})`,
