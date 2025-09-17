@@ -977,7 +977,8 @@ export async function getReactionsByCast(
   targetHash: string,
   reactionType: "Like" | "Recast",
   pageSize: number = 100,
-  pageToken?: string
+  pageToken?: string,
+  reverse: boolean = true
 ): Promise<HttpResponse<HttpReactionMessage>> {
   return withSpan(
     `getReactionsByCast(${targetFid}, ${targetHash}, ${reactionType})`,
@@ -1023,3 +1024,46 @@ export async function getReactionsByCast(
   );
 }
 
+export async function getReactionsByTarget(
+  url: string,
+  reactionType: "Like" | "Recast",
+): Promise<HttpResponse<HttpReactionMessage>> {
+  return withSpan(
+    `getReactionsByTarget(${url}, ${reactionType})`,
+    "function",
+    async () => {
+      logServiceMethod("http", "getReactionsByTarget", { url, reactionType });
+      addBreadcrumb(
+        `Getting reactions for target ${url}`,
+        "http",
+        "info",
+        { url, reactionType }
+      );
+
+      const params: Record<string, string | number> = {
+        url,
+        reaction_type: reactionType,
+      };
+
+      try {
+        const res = await httpRequest<HttpResponse<HttpReactionMessage>>("reactionsByTarget", params);
+
+        // Log response for debugging if no messages returned
+        if (!res?.messages) {
+          console.warn("Reactions API response missing messages:", res);
+        }
+
+        return res;
+      } catch (err: any) {
+        console.error("Failed to fetch reactions by target:", {
+          url,
+          reactionType,
+          error: err.message,
+          stack: err.stack,
+        });
+        throw err;
+      }
+    },
+    { url, reactionType }
+  );
+}
