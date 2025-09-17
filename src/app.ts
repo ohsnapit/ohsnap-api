@@ -2,7 +2,7 @@ import './instrument.js';
 import { Elysia } from 'elysia';
 import { openapi } from '@elysiajs/openapi';
 import { getCastByFidAndHash, getEnrichedUserProfile, getCastsByFid, getFullCastBundle } from './services/cast.js';
-import { getOnChainSignersByFidSimple, getOnChainEventsByFidSimple, getReactionsByFid, getLinksByFid, getLinksByTargetFid, getVerificationsByFid, getReactionsByCast } from './services/http.js';
+import { getOnChainSignersByFidSimple, getOnChainEventsByFidSimple, getReactionsByFid, getLinksByFid, getLinksByTargetFid, getVerificationsByFid, getReactionsByCast, getReactionsByTarget } from './services/http.js';
 import { API_PORT } from './utils/constants.js';
 import { startTimer, logServiceMethod, logError } from './utils/logger.js';
 import { openApiConfig } from './config/openapi.js';
@@ -14,7 +14,7 @@ import { castQuerySchema, castResponseSchema, castExamples, castFullResponseSche
 import { usernameQuerySchema, userQuerySchema, userResponseSchema, userExamples, userCastsQuerySchema, userCastsResponseSchema, userCastsExamples } from './schemas/user.js';
 import { healthResponseSchema } from './schemas/health.js';
 import { onchainSignersQuerySchema, onchainSignersResponseSchema, onchainSignersExamples, onchainEventsQuerySchema, onchainEventsResponseSchema, onchainEventsExamples } from './schemas/onchain.js';
-import { reactionsByFidQuerySchema, reactionsByFidResponseSchema, reactionsByFidExamples, reactionsByCastQuerySchema, reactionsByCastExamples } from './schemas/reactions.js';
+import { reactionsByFidQuerySchema, reactionsByFidResponseSchema, reactionsByFidExamples, reactionsByCastQuerySchema, reactionsByCastExamples, reactionsByTargetQuerySchema, reactionsByTargetExamples } from './schemas/reactions.js';
 import { linksByFidQuerySchema, linksByFidResponseSchema, linksByFidExamples, linksByTargetFidQuerySchema, linksByTargetFidResponseSchema, linksByTargetFidExamples } from './schemas/links.js';
 import { verificationsByFidQuerySchema, verificationsByFidResponseSchema, verificationsByFidExamples } from './schemas/verifications.js';
 
@@ -640,6 +640,72 @@ const app = new Elysia()
       - Get recasts: reaction_type=Recast
       - Paginated: Use pageToken for loading more results`,
       examples: reactionsByCastExamples
+    }
+  })
+  .get('/v1/reactionsByTarget', async ({ query }) => {
+    return withSpan(
+      'GET /v1/reactionsByTarget',
+      'http.server',
+      async () => {
+        logServiceMethod('api', 'getReactionsByTarget', { query });
+        addBreadcrumb('API request: GET /v1/reactionsByTarget', 'api', 'info', { query });
+
+        try {
+          const { url, reaction_type} = query;
+
+          if (!url) {
+            return { error: 'target url parameter is required' };
+          }
+
+          if (!reaction_type) {
+            return { error: 'reaction_type parameter is required' };
+          }
+
+          // Call your service method
+          const result = await getReactionsByTarget(
+            url,
+            reaction_type as 'Like' | 'Recast',
+          );
+
+          return result;
+        } catch (error: any) {
+          logError(error, 'api_getReactionsByTarget', {
+            url: query.url,
+            reaction_type: query.reaction_type,
+            pageSize: query.pageSize,
+            pageToken: query.pageToken,
+            reverse: query.reverse,
+          });
+          return { error: 'Internal server error', details: error.message };
+        }
+      }
+    );
+  }, {
+    query: reactionsByTargetQuerySchema,
+    response: reactionsByFidResponseSchema,
+    detail: {
+      tags: ['Reactions'],
+      summary: 'Get all reactions by Target',
+      description: `Get all reactions to a cast's target URL with.
+
+**Parameters:**
+- **url** (required): The FID of the cast author
+- **reaction_type** (required): The type of reaction (Like or Recast)
+
+      **Available Reaction Types:**
+      - Like: Like the target cast
+      - Recast: Share target cast to the user's audience
+
+      **Response Format:**
+      - Contains a "messages" array with detailed reaction information
+      - Each message includes data, hash, signature, and signer information
+      - Pagination support with nextPageToken
+
+      **Usage:**
+      - Get likes: reaction_type=Like
+      - Get recasts: reaction_type=Recast
+      - Paginated: Use pageToken for loading more results`,
+      examples: reactionsByTargetExamples
     }
   })
   // Links by FID route

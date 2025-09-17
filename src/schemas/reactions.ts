@@ -120,3 +120,27 @@ export const reactionsByCastExamples = [
     value: { target_fid: '860783', target_hash: '0xcefff5d03bf661f4f9d709386816bd4d6ba49c72', reaction_type: 'Like', pageSize: '100', reverse: 'true' }
   }
 ];
+
+export const reactionsByTargetExamples = [
+  {    summary: 'Get likes for a target',
+    description: 'Returns all likes for a specific target.',
+    value: { url: 'chain://eip155:1/erc721:0x39d89b649ffa044383333d297e325d42d31329b2', reaction_type: 'Like' }
+  },
+  {
+    summary: 'Get recasts for a target',
+    description: 'Returns all recasts for a specific target.',
+    value: { url: 'chain://eip155:1/erc721:0x39d89b649ffa044383333d297e325d42d31329b2', reaction_type: 'Recast' }
+  },
+];
+
+export const reactionsByTargetQuerySchema = t.Object({
+  url: t.String({
+    description: 'The URL of the target',
+    example: 'chain://eip155:1/erc721:0x39d89b649ffa044383333d297e325d42d31329b2'
+  }),
+  reaction_type: t.String({
+    description: 'The type of reaction, use string representation',
+    example: 'Like',
+    enum: ['Like', 'Recast']
+  }),
+});
