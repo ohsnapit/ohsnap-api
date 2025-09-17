@@ -1,6 +1,7 @@
 import './instrument.js';
 import { Elysia } from 'elysia';
 import { openapi } from '@elysiajs/openapi';
+import { staticPlugin } from '@elysiajs/static';
 import { getCastByFidAndHash, getEnrichedUserProfile, getCastsByFid, getFullCastBundle } from './services/cast.js';
 import { getOnChainSignersByFidSimple, getOnChainEventsByFidSimple, getReactionsByFid, getLinksByFid, getLinksByTargetFid, getVerificationsByFid, getReactionsByCast, getReactionsByTarget } from './services/http.js';
 import { API_PORT } from './utils/constants.js';
@@ -19,6 +20,10 @@ import { linksByFidQuerySchema, linksByFidResponseSchema, linksByFidExamples, li
 import { verificationsByFidQuerySchema, verificationsByFidResponseSchema, verificationsByFidExamples } from './schemas/verifications.js';
 
 const app = new Elysia()
+  .use(staticPlugin({
+    assets: "public",
+    prefix: ""
+  }))
   .use(openapi(openApiConfig))
   // Cast route
   .get('/v1/cast', async ({ query }) => {
