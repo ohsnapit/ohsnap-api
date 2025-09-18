@@ -389,6 +389,3 @@ export async function getFullCastBundle(fid: number, hash: string) {
     following,
     }
   };
-
-  
-
