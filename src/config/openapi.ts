@@ -33,6 +33,22 @@ export const openApiConfig = {
         description: 'User-related endpoints with optional pagination control. Use fullCount=true for complete accuracy.'
       },
       {
+        name: 'Reactions',
+        description: 'Reaction-related endpoints for likes and recasts'
+      },
+      {
+        name: 'Links',
+        description: 'Link-related endpoints for follows and connections'
+      },
+      {
+        name: 'Verifications',
+        description: 'Verification-related endpoints for account verifications'
+      },
+      {
+        name: 'Onchain',
+        description: 'On-chain event and signer endpoints'
+      },
+      {
         name: 'Health',
         description: 'Health check endpoints'
       }
