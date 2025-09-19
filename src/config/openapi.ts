@@ -1,4 +1,4 @@
-import { API_PORT, HTTP_IP } from '../utils/constants.js';
+import { API_PORT, HTTP_IP, PROD_URL} from '../utils/constants.js';
 
 export const openApiConfig = {
   documentation: {
@@ -19,7 +19,7 @@ export const openApiConfig = {
         description: 'Development server'
       }] : []),
       {
-        url: 'https://ohsnap-api-production.up.railway.app',
+        url: PROD_URL,
         description: 'Production server'
       }
     ],

@@ -1,5 +1,6 @@
 // Import Bun's Sentry SDK
 const Sentry = await import("@sentry/bun");
+import { PROD_URL } from './utils/constants.js';
 
 // Initialize Sentry as early as possible
 Sentry.init({
@@ -31,7 +32,7 @@ Sentry.init({
   tracePropagationTargets: [
     "localhost",
     /^https:\/\/.*\.sentry\.io/,
-    "https://ohsnap-api-production.up.railway.app",
+    PROD_URL,
   ],
 
   // Filter out noisy logs in production
