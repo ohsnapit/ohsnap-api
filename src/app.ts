@@ -25,6 +25,26 @@ const app = new Elysia()
       }
     });
   })
+  .onRequest(({ request }) => {
+    const url = new URL(request.url);
+
+    // Allow docs & health without API key
+    if (url.pathname.startsWith('/openapi')) {
+      return;
+    }
+
+    const apiKey = request.headers.get("ohsnap-api-key");
+    const allowedKeys = process.env.ALLOWED_API_KEYS
+      ? process.env.ALLOWED_API_KEYS.split(",").map(k => k.trim())
+      : [];
+
+    if (!apiKey || !allowedKeys.includes(apiKey)) {
+      return new Response(
+        JSON.stringify({ error: "Unauthorized: missing or invalid API key" }),
+        { status: 401, headers: { "Content-Type": "application/json" } }
+      );
+    }
+  })
   .use(castRoutes)
   .use(userRoutes)
   .use(onChainRoutes)
