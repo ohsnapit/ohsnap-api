@@ -23,6 +23,20 @@ export const openApiConfig = {
         description: 'Production server'
       }
     ],
+    components: {
+      securitySchemes: {
+        ApiKeyAuth: {
+          type: 'apiKey',
+          in: 'header',
+          name: 'ohsnap-api-key'
+        }
+      }
+    },
+    security: [
+      {
+        ApiKeyAuth: []
+      }
+    ],
     tags: [
       {
         name: 'Cast',
