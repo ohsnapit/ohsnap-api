@@ -6,6 +6,7 @@ import { openApiConfig } from './config/openapi.js';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { castRoutes } from './routes/cast.js';
+import { castRoutes as newCastRoutes } from './routes/cast.new.js';
 import { userRoutes } from './routes/user.js';
 import { onChainRoutes } from './routes/onchain.js';
 import { reactionRoutes } from './routes/reactions.js';
@@ -26,6 +27,7 @@ const app = new Elysia()
     });
   })
   .use(castRoutes)
+  // .use(newCastRoutes)
   .use(userRoutes)
   .use(onChainRoutes)
   .use(reactionRoutes)
