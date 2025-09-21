@@ -29,7 +29,7 @@ const app = new Elysia()
     const url = new URL(request.url);
 
     // Allow docs & health without API key
-    if (url.pathname.startsWith('/openapi')) {
+    if (url.pathname.startsWith('/openapi') || url.pathname.startsWith('/health')) {
       return;
     }
 
