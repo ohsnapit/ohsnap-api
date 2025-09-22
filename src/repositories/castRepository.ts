@@ -76,10 +76,10 @@ export const getCastsByParent = async (parentHash: string, limit = 20, offset = 
   return result.rows;
 };
 
-export const getCastByHashAndFid = async (hash: string, fid: number) => {
+export const getCastByHash = async (hash: string) => {
   console.log("here in db call")
   const result = await query(
-    `SELECT * FROM farcaster_casts fc WHERE fc."Hash" = '${hash}' AND fc."Fid" = ${fid};`
+    `SELECT * FROM farcaster_casts fc WHERE fc."Hash" = '${hash}';`
   );
   // console.log(result)
   const finalResult = mapCastRow(result.rows[0]);

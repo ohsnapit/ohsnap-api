@@ -3,7 +3,7 @@ import { withSpan, addBreadcrumb } from '../utils/tracing.js';
 import { logServiceMethod, logError } from '../utils/logger.js';
 import { getCastByFidAndHash, getFullCastBundle } from '../services/cast.js';
 import { castQuerySchema, castResponseSchema, castExamples, castFullResponseSchema } from '../schemas/cast.js';
-import { getCastByHashAndFid } from '../repositories/castRepository.js';
+import { getCastByHash } from '../repositories/castRepository.js';
 
 export const castRoutes = new Elysia()
     .get('/v1/cast', async ({ query }) => {
@@ -15,29 +15,19 @@ export const castRoutes = new Elysia()
                 addBreadcrumb('API request: GET /v1/cast', 'api', 'info', { query });
 
                 try {
-                    const { fid, hash, fullCount } = query;
+                    const { hash } = query;
 
-                    if (!fid || !hash) {
-                        return { error: 'fid and hash parameters are required' };
+                    if (!hash) {
+                        return { error: 'hash parameter is required' };
                     }
 
-                    const fidNumber = parseInt(fid as string);
                     const hashString = hash as string;
-                    const useFullCount = fullCount === 'true' || fullCount === '1';
-
-                    if (isNaN(fidNumber)) {
-                        return { error: 'fid must be a valid number' };
-                    }
 
                     if (!hashString.startsWith('0x') || hashString.length !== 42) {
                         return { error: 'hash must be a valid hex string starting with 0x' };
                     }
-
-                    // const result = await getCastByFidAndHash(fidNumber, hashString, useFullCount);
-                    // const result = await getCastByHashAndFid(hashString, fidNumber);
-                    // return result;
-                    const result = await getCastByHashAndFid(hashString, fidNumber);
-return { cast: result }; // wrap in "cast" key
+                    const result = await getCastByHash(hashString);
+                    return { cast: result }; // wrap in "cast" key
                 } catch (error: any) {
                     logError(error, 'api_getCast', { fid: query.fid, hash: query.hash, fullCount: query.fullCount });
                     return { error: 'Internal server error', details: error.message };

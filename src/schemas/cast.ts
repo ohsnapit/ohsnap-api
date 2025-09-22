@@ -1,19 +1,10 @@
 import { t } from 'elysia';
 
 export const castQuerySchema = t.Object({
-  fid: t.String({
-    description: 'Farcaster ID (FID) of the cast author',
-    example: '860783'
-  }),
   hash: t.String({
     description: 'Cast hash in hex format (0x...)',
     example: '0xcefff5d03bf661f4f9d709386816bd4d6ba49c72'
-  }),
-  fullCount: t.Optional(t.String({
-    description: 'Pagination mode for follower/reaction counts. Default: "false" (fast, up to 10K). Set to "true" for complete counts',
-    example: 'false',
-    enum: ['true', 'false']
-  }))
+  })
 });
 
 export const castResponseSchema = {
@@ -124,7 +115,6 @@ export const castExamples = [
     summary: 'Fast Mode (Default) - up to 10K counts',
     description: 'Returns with follower/reaction counts up to 10,000. Suitable for most use cases.',
     value: {
-      fid: '3',
       hash: '0x029f7cceef2f0078f34949d6e339070fc6eb47b4'
     }
   },
@@ -132,16 +122,13 @@ export const castExamples = [
     summary: 'Full Mode - complete accurate counts',
     description: 'Returns complete counts for users with 10K+ followers/reactions. Use for analytics or when exact numbers are critical.',
     value: {
-      fid: '3',
       hash: '0x029f7cceef2f0078f34949d6e339070fc6eb47b4',
-      fullCount: 'true'
     }
   },
   {
     summary: 'Regular User - Fast mode sufficient',
     description: 'For most users with <10K followers, fast mode gives complete counts.',
     value: {
-      fid: '860783',
       hash: '0xcefff5d03bf661f4f9d709386816bd4d6ba49c72'
     }
   }
