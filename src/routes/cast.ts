@@ -3,7 +3,7 @@ import { withSpan, addBreadcrumb } from '../utils/tracing.js';
 import { logServiceMethod, logError } from '../utils/logger.js';
 import { getCastByFidAndHash, getFullCastBundle } from '../services/cast.js';
 import { castQuerySchema, castResponseSchema, castExamples, castFullResponseSchema } from '../schemas/cast.js';
-import { getCastByHash } from '../repositories/castRepository.js';
+import { getCastByHash } from '../services/dbQuery.js';
 
 export const castRoutes = new Elysia()
     .get('/v1/cast', async ({ query }) => {

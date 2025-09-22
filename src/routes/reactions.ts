@@ -1,7 +1,8 @@
 import Elysia from "elysia";
 import { withSpan, addBreadcrumb } from "../utils/tracing.js";
 import { logServiceMethod, logError } from "../utils/logger.js";
-import { getReactionsByFid, getReactionsByCast, getReactionsByTarget } from "../services/http.js";
+import { getReactionsByTarget } from "../services/http.js";
+import { getReactionsByFid, getReactionsByCast } from "../services/dbQuery.js";
 import { reactionsByFidQuerySchema, reactionsByFidResponseSchema, reactionsByFidExamples, reactionsByCastQuerySchema, reactionsByCastExamples, reactionsByTargetQuerySchema, reactionsByTargetExamples } from "../schemas/reactions.js";
 
 
@@ -17,7 +18,7 @@ export const reactionRoutes = new Elysia()
                 addBreadcrumb('API request: GET /v1/reactionsByFid', 'api', 'info', { query });
 
                 try {
-                    const { fid, reaction_type, pageSize, pageToken, reverse } = query;
+                    const { fid, reaction_type} = query;
 
                     if (!fid) {
                         return { error: 'fid parameter is required' };
@@ -28,29 +29,20 @@ export const reactionRoutes = new Elysia()
                     }
 
                     const fidNumber = parseInt(fid as string);
-                    const pageSizeNumber = pageSize ? parseInt(pageSize as string) : 1000;
-                    const reverseFlag = reverse === 'true';
+
 
                     if (isNaN(fidNumber)) {
                         return { error: 'fid must be a valid number' };
                     }
 
-                    if (pageSize && (isNaN(pageSizeNumber) || pageSizeNumber < 1)) {
-                        return { error: 'pageSize must be a valid positive number' };
-                    }
-
                     const result = await getReactionsByFid(
                         fidNumber,
-                        reaction_type as string,
-                        pageSizeNumber,
-                        pageToken as string,
-                        reverseFlag
+                        reaction_type as string
                     );
 
                     // Ensure messages array is always defined to match schema
                     return {
-                        messages: result.messages || [],
-                        nextPageToken: result.nextPageToken
+                        messages: result || [],
                     };
                 } catch (error: any) {
                     logError(error, 'api_getReactionsByFid', {
@@ -76,9 +68,6 @@ export const reactionRoutes = new Elysia()
 **Parameters:**
 - **fid** (required): The FID of the reaction's creator
 - **reaction_type** (required): The type of reaction (Like or Recast)
-- **pageSize** (optional): Page size, defaults to 1000
-- **pageToken** (optional): Pagination token for next page
-- **reverse** (optional): Reverse order flag (true/false)
 
 **Available Reaction Types:**
 - Like: Like the target cast
@@ -91,8 +80,7 @@ export const reactionRoutes = new Elysia()
 
 **Usage:**
 - Get likes: reaction_type=Like
-- Get recasts: reaction_type=Recast
-- Paginated: Use pageToken for loading more results`,
+- Get recasts: reaction_type=Recast`,
             examples: reactionsByFidExamples
         }
     })
@@ -107,7 +95,7 @@ export const reactionRoutes = new Elysia()
                 addBreadcrumb('API request: GET /v1/reactionsByCast', 'api', 'info', { query });
 
                 try {
-                    const { target_fid, target_hash, reaction_type, pageSize, pageToken, reverse } = query;
+                    const { target_fid, target_hash, reaction_type} = query;
 
                     if (!target_fid) {
                         return { error: 'target_fid parameter is required' };
@@ -122,15 +110,9 @@ export const reactionRoutes = new Elysia()
                     }
 
                     const targetFidNumber = parseInt(target_fid as string);
-                    const pageSizeNumber = pageSize ? parseInt(pageSize as string) : 100;
-                    const reverseFlag = reverse === 'true';
 
                     if (isNaN(targetFidNumber)) {
                         return { error: 'target_fid must be a valid number' };
-                    }
-
-                    if (pageSize && (isNaN(pageSizeNumber) || pageSizeNumber < 1)) {
-                        return { error: 'pageSize must be a valid positive number' };
                     }
 
                     // Call your service method
@@ -138,15 +120,11 @@ export const reactionRoutes = new Elysia()
                         targetFidNumber,
                         target_hash as string,
                         reaction_type as 'Like' | 'Recast',
-                        pageSizeNumber,
-                        pageToken as string,
-                        reverseFlag
                     );
 
                     // Ensure messages array is always defined to match schema
                     return {
-                        messages: result.messages || [],
-                        nextPageToken: result.nextPageToken
+                        messages: result || [],
                     };
                 } catch (error: any) {
                     logError(error, 'api_getReactionsByCast', {
@@ -173,9 +151,6 @@ export const reactionRoutes = new Elysia()
 - **target_fid** (required): The FID of the cast author
 - **target_hash** (required): The hash of the target cast
 - **reaction_type** (required): The type of reaction (Like or Recast)
-- **pageSize** (optional): Page size, defaults to 100
-- **pageToken** (optional): Pagination token for next page
-      - **reverse** (optional): Reverse order flag (true/false)
 
       **Available Reaction Types:**
       - Like: Like the target cast

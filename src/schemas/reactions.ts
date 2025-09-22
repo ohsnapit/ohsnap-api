@@ -11,19 +11,19 @@ export const reactionsByFidQuerySchema = t.Object({
     example: 'Like',
     enum: ['Like', 'Recast']
   }),
-  pageSize: t.Optional(t.String({
-    description: 'Optional page size (default: 1000)',
-    example: '100'
-  })),
-  pageToken: t.Optional(t.String({
-    description: 'Optional page token for pagination',
-    example: 'DAEDAAAGlQ...'
-  })),
-  reverse: t.Optional(t.String({
-    description: 'Optional reverse order flag',
-    example: 'true',
-    enum: ['true', 'false']
-  }))
+  // pageSize: t.Optional(t.String({
+  //   description: 'Optional page size (default: 1000)',
+  //   example: '100'
+  // })),
+  // pageToken: t.Optional(t.String({
+  //   description: 'Optional page token for pagination',
+  //   example: 'DAEDAAAGlQ...'
+  // })),
+  // reverse: t.Optional(t.String({
+  //   description: 'Optional reverse order flag',
+  //   example: 'true',
+  //   enum: ['true', 'false']
+  // }))
 });
 
 export const reactionsByFidResponseSchema = {
@@ -33,7 +33,7 @@ export const reactionsByFidResponseSchema = {
         type: t.String(),
         fid: t.Number(),
         timestamp: t.Number(),
-        network: t.String(),
+        // network: t.String(),
         reactionBody: t.Object({
           type: t.String(),
           targetCastId: t.Optional(t.Object({
@@ -44,7 +44,7 @@ export const reactionsByFidResponseSchema = {
         })
       }),
       hash: t.String(),
-      hashScheme: t.String(),
+      // hashScheme: t.String(),
       signature: t.String(),
       signatureScheme: t.String(),
       signer: t.String()
@@ -96,11 +96,6 @@ export const reactionsByFidExamples = [
     description: 'Returns all recasts by a specific FID.',
     value: { fid: '3', reaction_type: 'Recast' }
   },
-  {
-    summary: 'With pagination',
-    description: 'Returns paginated results with custom page size.',
-    value: { fid: '3', reaction_type: 'Like', pageSize: '100', reverse: 'true' }
-  }
 ];
 
 export const reactionsByCastExamples = [

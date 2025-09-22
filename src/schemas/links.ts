@@ -32,7 +32,7 @@ export const linksByFidResponseSchema = {
         type: t.String(),
         fid: t.Number(),
         timestamp: t.Number(),
-        network: t.String(),
+        // network: t.String(),
         linkBody: t.Object({
           type: t.String(),
           displayTimestamp: t.Optional(t.Union([t.Number(), t.Null()])),
@@ -40,7 +40,7 @@ export const linksByFidResponseSchema = {
         })
       }),
       hash: t.String(),
-      hashScheme: t.String(),
+      // hashScheme: t.String(),
       signature: t.String(),
       signatureScheme: t.String(),
       signer: t.String()
@@ -101,7 +101,7 @@ export const linksByTargetFidResponseSchema = {
         type: t.String(),
         fid: t.Number(),
         timestamp: t.Number(),
-        network: t.String(),
+        // network: t.String(),
         linkBody: t.Object({
           type: t.String(),
           displayTimestamp: t.Optional(t.Union([t.Number(), t.Null()])),
@@ -109,7 +109,7 @@ export const linksByTargetFidResponseSchema = {
         })
       }),
       hash: t.String(),
-      hashScheme: t.String(),
+      // hashScheme: t.String(),
       signature: t.String(),
       signatureScheme: t.String(),
       signer: t.String()
